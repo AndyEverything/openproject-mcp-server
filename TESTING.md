@@ -2,6 +2,33 @@
 
 This project includes comprehensive testing setup with both unit tests and end-to-end tests using Docker Compose.
 
+## Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality and consistency. The hooks include:
+
+- **Black**: Code formatting
+- **Flake8**: Linting and style checking
+- **Pre-commit hooks**: Various checks for trailing whitespace, file endings, YAML syntax, etc.
+
+### Setup Pre-commit Hooks
+
+```bash
+# Install pre-commit hooks
+uv run pre-commit install
+
+# Run all hooks manually
+uv run pre-commit run --all-files
+
+# Run specific hook
+uv run pre-commit run black
+uv run pre-commit run flake8
+```
+
+### Configuration
+
+- **Black**: Configured with 88 character line length (see `.pre-commit-config.yaml`)
+- **Flake8**: Configured in `.flake8` file with exclusions for `.venv`, `.git`, etc.
+
 ## Test Structure
 
 - **Unit Tests** (`tests/test_unit.py`): Test individual components without external dependencies
@@ -184,12 +211,12 @@ Add new E2E tests to `tests/e2e_test.py`:
 async def test_new_feature(self):
     """Test new feature end-to-end"""
     logger.info("Testing new feature...")
-    
+
     result = await self.mcp_client.call_tool("new_tool", {})
-    
+
     assert "content" in result
     assert "expected result" in result["content"][0].text
-    
+
     logger.info("✅ New feature test passed")
 ```
 

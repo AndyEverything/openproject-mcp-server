@@ -31,7 +31,7 @@ docker compose --env-file .env.test up -d
 
 # Wait for OpenProject to be ready
 echo "⏳ Waiting for OpenProject to be ready..."
-timeout 300 bash -c 'until curl -f http://localhost:8080/ > /dev/null 2>&1; do 
+timeout 300 bash -c 'until curl -f http://localhost:8080/ > /dev/null 2>&1; do
     echo "Waiting for OpenProject..."
     sleep 10
 done'

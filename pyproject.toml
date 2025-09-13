@@ -50,6 +50,9 @@ extend-ignore = ["E203", "W503"]
 
 [dependency-groups]
 dev = [
+    "black>=25.1.0",
+    "flake8>=7.3.0",
+    "pre-commit>=4.3.0",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
 ]

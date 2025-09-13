@@ -125,7 +125,7 @@ python openproject-mcp.py
 
 Add this configuration to your Claude Desktop config file:
 
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 
 ```json
