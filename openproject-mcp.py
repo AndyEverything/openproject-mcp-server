@@ -74,9 +74,7 @@ class OpenProjectClient:
         credentials = f"apikey:{self.api_key}"
         return base64.b64encode(credentials.encode()).decode()
 
-    async def _request(
-        self, method: str, endpoint: str, data: Optional[Dict] = None
-    ) -> Dict:
+    async def _request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict:
         """
         Execute an API request.
 
@@ -102,9 +100,7 @@ class OpenProjectClient:
         connector = aiohttp.TCPConnector(ssl=ssl_context)
         timeout = aiohttp.ClientTimeout(total=30)
 
-        async with aiohttp.ClientSession(
-            connector=connector, timeout=timeout
-        ) as session:
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             try:
                 # Build request parameters
                 request_params = {
@@ -125,18 +121,14 @@ class OpenProjectClient:
 
                     # Parse response
                     try:
-                        response_json = (
-                            json.loads(response_text) if response_text else {}
-                        )
+                        response_json = json.loads(response_text) if response_text else {}
                     except json.JSONDecodeError:
                         logger.error(f"Invalid JSON response: {response_text[:200]}...")
                         response_json = {}
 
                     # Handle errors
                     if response.status >= 400:
-                        error_msg = self._format_error_message(
-                            response.status, response_text
-                        )
+                        error_msg = self._format_error_message(response.status, response_text)
                         raise Exception(error_msg)
 
                     return response_json
@@ -194,9 +186,7 @@ class OpenProjectClient:
 
         return result
 
-    async def get_work_packages(
-        self, project_id: Optional[int] = None, filters: Optional[str] = None
-    ) -> Dict:
+    async def get_work_packages(self, project_id: Optional[int] = None, filters: Optional[str] = None) -> Dict:
         """
         Retrieve work packages.
 
@@ -241,9 +231,7 @@ class OpenProjectClient:
 
         # Set required links
         if "project" in data:
-            form_payload["_links"]["project"] = {
-                "href": f"/api/v3/projects/{data['project']}"
-            }
+            form_payload["_links"]["project"] = {"href": f"/api/v3/projects/{data['project']}"}
         if "type" in data:
             form_payload["_links"]["type"] = {"href": f"/api/v3/types/{data['type']}"}
 
@@ -264,15 +252,11 @@ class OpenProjectClient:
         if "priority_id" in data:
             if "_links" not in payload:
                 payload["_links"] = {}
-            payload["_links"]["priority"] = {
-                "href": f"/api/v3/priorities/{data['priority_id']}"
-            }
+            payload["_links"]["priority"] = {"href": f"/api/v3/priorities/{data['priority_id']}"}
         if "assignee_id" in data:
             if "_links" not in payload:
                 payload["_links"] = {}
-            payload["_links"]["assignee"] = {
-                "href": f"/api/v3/users/{data['assignee_id']}"
-            }
+            payload["_links"]["assignee"] = {"href": f"/api/v3/users/{data['assignee_id']}"}
 
         # Create work package
         return await self._request("POST", "/work_packages", payload)
@@ -315,7 +299,8 @@ class OpenProjectClient:
 
         Args:
             work_package_id: ID of the source work package
-            relation_type: Type of relationship ("blocks", "follows", "relates", "duplicates", "includes", "requires")
+            relation_type: Type of relationship ("blocks", "follows", "relates",
+                "duplicates", "includes", "requires")
             target_work_package_id: ID of the target work package
             description: Optional description of the relationship
             lag: Optional lag in days (for "follows" relationships)
@@ -326,9 +311,7 @@ class OpenProjectClient:
         endpoint = f"/work_packages/{work_package_id}/relations"
 
         payload = {
-            "_links": {
-                "to": {"href": f"/api/v3/work_packages/{target_work_package_id}"}
-            },
+            "_links": {"to": {"href": f"/api/v3/work_packages/{target_work_package_id}"}},
             "type": relation_type,
         }
 
@@ -434,23 +417,15 @@ class OpenProjectClient:
 
         # Set links for updated fields
         if "project" in data:
-            form_payload["_links"]["project"] = {
-                "href": f"/api/v3/projects/{data['project']}"
-            }
+            form_payload["_links"]["project"] = {"href": f"/api/v3/projects/{data['project']}"}
         if "type" in data:
             form_payload["_links"]["type"] = {"href": f"/api/v3/types/{data['type']}"}
         if "status" in data:
-            form_payload["_links"]["status"] = {
-                "href": f"/api/v3/statuses/{data['status']}"
-            }
+            form_payload["_links"]["status"] = {"href": f"/api/v3/statuses/{data['status']}"}
         if "priority_id" in data:
-            form_payload["_links"]["priority"] = {
-                "href": f"/api/v3/priorities/{data['priority_id']}"
-            }
+            form_payload["_links"]["priority"] = {"href": f"/api/v3/priorities/{data['priority_id']}"}
         if "assignee_id" in data:
-            form_payload["_links"]["assignee"] = {
-                "href": f"/api/v3/users/{data['assignee_id']}"
-            }
+            form_payload["_links"]["assignee"] = {"href": f"/api/v3/users/{data['assignee_id']}"}
 
         # Set other fields
         if "subject" in data:
@@ -459,9 +434,7 @@ class OpenProjectClient:
             form_payload["description"] = {"raw": data["description"]}
 
         # Get form with payload
-        form = await self._request(
-            "POST", f"/work_packages/{work_package_id}/form", form_payload
-        )
+        form = await self._request("POST", f"/work_packages/{work_package_id}/form", form_payload)
 
         # Use form payload and add lock version
         payload = form.get("payload", form_payload)
@@ -503,9 +476,7 @@ class OpenProjectClient:
         except Exception as e:
             # If assignee is not allowed, retry without assignee
             if "assignee" in str(e) and "assignee_id" in data:
-                logger.warning(
-                    f"Assignee not allowed for work package, retrying without assignee: {e}"
-                )
+                logger.warning(f"Assignee not allowed for work package, retrying without assignee: {e}")
                 data_copy = data.copy()
                 data_copy.pop("assignee_id", None)
                 return await self.create_work_package(data_copy)
@@ -1010,9 +981,7 @@ class OpenProjectMCPServer:
                 elif name == "list_projects":
                     filters = None
                     if arguments.get("active_only", True):
-                        filters = json.dumps(
-                            [{"active": {"operator": "=", "values": ["t"]}}]
-                        )
+                        filters = json.dumps([{"active": {"operator": "=", "values": ["t"]}}])
 
                     result = await self.client.get_projects(filters)
                     projects = result.get("_embedded", {}).get("elements", [])
@@ -1036,13 +1005,9 @@ class OpenProjectMCPServer:
 
                     filters = None
                     if status == "open":
-                        filters = json.dumps(
-                            [{"status": {"operator": "open", "values": []}}]
-                        )
+                        filters = json.dumps([{"status": {"operator": "open", "values": []}}])
                     elif status == "closed":
-                        filters = json.dumps(
-                            [{"status": {"operator": "closed", "values": []}}]
-                        )
+                        filters = json.dumps([{"status": {"operator": "closed", "values": []}}])
 
                     result = await self.client.get_work_packages(project_id, filters)
                     work_packages = result.get("_embedded", {}).get("elements", [])
@@ -1104,7 +1069,7 @@ class OpenProjectMCPServer:
 
                     result = await self.client.create_work_package(data)
 
-                    text = f"✅ Work package created successfully:\n\n"
+                    text = "✅ Work package created successfully:\n\n"
                     text += f"- **Title**: {result.get('subject', 'N/A')}\n"
                     text += f"- **ID**: #{result.get('id', 'N/A')}\n"
 
@@ -1134,7 +1099,7 @@ class OpenProjectMCPServer:
                         lag,
                     )
 
-                    text = f"✅ Work package relationship created successfully:\n\n"
+                    text = "✅ Work package relationship created successfully:\n\n"
                     text += f"- **From Work Package**: #{work_package_id}\n"
                     text += f"- **To Work Package**: #{target_work_package_id}\n"
                     text += f"- **Relationship Type**: {relation_type}\n"
@@ -1150,9 +1115,7 @@ class OpenProjectMCPServer:
                 elif name == "list_work_package_relations":
                     work_package_id = arguments["work_package_id"]
 
-                    result = await self.client.get_work_package_relations(
-                        work_package_id
-                    )
+                    result = await self.client.get_work_package_relations(work_package_id)
                     relations = result.get("_embedded", {}).get("elements", [])
 
                     if not relations:
@@ -1168,10 +1131,16 @@ class OpenProjectMCPServer:
                                 embedded = relation["_embedded"]
                                 if "to" in embedded:
                                     to_wp = embedded["to"]
-                                    text += f"  Target: #{to_wp.get('id', 'N/A')} - {to_wp.get('subject', 'No title')}\n"
+                                    text += (
+                                        f"  Target: #{to_wp.get('id', 'N/A')} - "
+                                        f"{to_wp.get('subject', 'No title')}\n"
+                                    )
                                 if "from" in embedded:
                                     from_wp = embedded["from"]
-                                    text += f"  Source: #{from_wp.get('id', 'N/A')} - {from_wp.get('subject', 'No title')}\n"
+                                    text += (
+                                        f"  Source: #{from_wp.get('id', 'N/A')} - "
+                                        f"{from_wp.get('subject', 'No title')}\n"
+                                    )
 
                             if relation.get("description"):
                                 text += f"  Description: {relation['description']}\n"
@@ -1194,9 +1163,7 @@ class OpenProjectMCPServer:
                 elif name == "list_users":
                     filters = None
                     if arguments.get("active_only", True):
-                        filters = json.dumps(
-                            [{"status": {"operator": "=", "values": ["active"]}}]
-                        )
+                        filters = json.dumps([{"status": {"operator": "=", "values": ["active"]}}])
 
                     result = await self.client.get_users(filters)
                     users = result.get("_embedded", {}).get("elements", [])
@@ -1209,9 +1176,7 @@ class OpenProjectMCPServer:
                             text += f"- **{user.get('name', 'Unknown')}** (ID: {user.get('id', 'N/A')})\n"
                             text += f"  Email: {user.get('email', 'N/A')}\n"
                             text += f"  Status: {user.get('status', 'Unknown')}\n"
-                            text += (
-                                f"  Admin: {'Yes' if user.get('admin') else 'No'}\n\n"
-                            )
+                            text += f"  Admin: {'Yes' if user.get('admin') else 'No'}\n\n"
 
                     return [TextContent(type="text", text=text)]
 
@@ -1265,13 +1230,9 @@ class OpenProjectMCPServer:
                     if "assignee_id" in arguments:
                         data["assignee_id"] = arguments["assignee_id"]
 
-                    result = await self.client.update_work_package(
-                        work_package_id, data
-                    )
+                    result = await self.client.update_work_package(work_package_id, data)
 
-                    text = (
-                        f"✅ Work package #{work_package_id} updated successfully:\n\n"
-                    )
+                    text = f"✅ Work package #{work_package_id} updated successfully:\n\n"
                     text += f"- **Title**: {result.get('subject', 'N/A')}\n"
                     text += f"- **ID**: #{result.get('id', 'N/A')}\n"
 
@@ -1326,13 +1287,9 @@ class OpenProjectMCPServer:
                     if attendees:
                         data["assignee_id"] = attendees[0]
 
-                    result = (
-                        await self.client.create_work_package_with_fallback_assignee(
-                            data
-                        )
-                    )
+                    result = await self.client.create_work_package_with_fallback_assignee(data)
 
-                    text = f"✅ Meeting work package created successfully:\n\n"
+                    text = "✅ Meeting work package created successfully:\n\n"
                     text += f"- **Meeting**: {meeting_title}\n"
                     text += f"- **Date**: {meeting_date} at {meeting_time}\n"
                     text += f"- **Duration**: {duration_minutes} minutes\n"
@@ -1344,14 +1301,13 @@ class OpenProjectMCPServer:
                         text += f"- **Attendees**: {len(attendees)} people\n"
 
                     # Check if assignee was actually set
-                    if (
-                        attendees
-                        and "_embedded" in result
-                        and "assignee" in result["_embedded"]
-                    ):
-                        text += f"- **Organizer**: {result['_embedded']['assignee'].get('name', 'User ID ' + str(attendees[0]))}\n"
+                    if attendees and "_embedded" in result and "assignee" in result["_embedded"]:
+                        text += (
+                            f"- **Organizer**: "
+                            f"{result['_embedded']['assignee'].get('name', 'User ID ' + str(attendees[0]))}\n"
+                        )
                     elif attendees:
-                        text += f"- **Note**: Could not assign organizer due to permission constraints\n"
+                        text += "- **Note**: Could not assign organizer due to permission constraints\n"
 
                     return [TextContent(type="text", text=text)]
 
@@ -1378,9 +1334,7 @@ class OpenProjectMCPServer:
                         for i, item in enumerate(action_items, 1):
                             minutes_description += f"{i}. {item['description']}"
                             if item.get("assignee_id"):
-                                minutes_description += (
-                                    f" (Assigned to User ID {item['assignee_id']})"
-                                )
+                                minutes_description += f" (Assigned to User ID {item['assignee_id']})"
                             if item.get("due_date"):
                                 minutes_description += f" (Due: {item['due_date']})"
                             minutes_description += "\n"
@@ -1388,31 +1342,21 @@ class OpenProjectMCPServer:
                         minutes_description += "None recorded\n"
 
                     if next_meeting_date:
-                        minutes_description += (
-                            f"\n### Next Meeting\nScheduled for: {next_meeting_date}\n"
-                        )
+                        minutes_description += f"\n### Next Meeting\nScheduled for: {next_meeting_date}\n"
 
-                    minutes_description += (
-                        "\n---\n*Minutes added on "
-                        + datetime.now().strftime("%Y-%m-%d %H:%M")
-                        + "*"
-                    )
+                    minutes_description += "\n---\n*Minutes added on " + datetime.now().strftime("%Y-%m-%d %H:%M") + "*"
 
                     # Update the work package with minutes
                     update_data = {"description": minutes_description}
 
-                    result = await self.client.update_work_package(
-                        meeting_work_package_id, update_data
-                    )
+                    result = await self.client.update_work_package(meeting_work_package_id, update_data)
 
                     text = f"✅ Meeting minutes added to work package #{meeting_work_package_id}:\n\n"
-                    text += f"- **Minutes**: Added discussion points and outcomes\n"
+                    text += "- **Minutes**: Added discussion points and outcomes\n"
                     if decisions:
                         text += f"- **Decisions**: {len(decisions.split('.'))} decisions recorded\n"
                     if action_items:
-                        text += (
-                            f"- **Action Items**: {len(action_items)} items recorded\n"
-                        )
+                        text += f"- **Action Items**: {len(action_items)} items recorded\n"
                     if next_meeting_date:
                         text += f"- **Next Meeting**: {next_meeting_date}\n"
 
@@ -1447,7 +1391,10 @@ class OpenProjectMCPServer:
                             }
                         )
 
-                    text = f"✅ Created {len(created_tasks)} follow-up task(s) from meeting #{meeting_work_package_id}:\n\n"
+                    text = (
+                        f"✅ Created {len(created_tasks)} follow-up task(s) "
+                        f"from meeting #{meeting_work_package_id}:\n\n"
+                    )
 
                     for task in created_tasks:
                         text += f"- **Task #{task['id']}**: {task['subject']}\n"
@@ -1471,9 +1418,7 @@ class OpenProjectMCPServer:
 
                     # Filter by project if specified
                     if project_id:
-                        filters.append(
-                            {"project": {"operator": "=", "values": [str(project_id)]}}
-                        )
+                        filters.append({"project": {"operator": "=", "values": [str(project_id)]}})
 
                     # Filter by meeting type (assuming it's in the subject)
                     if meeting_type:
@@ -1511,44 +1456,26 @@ class OpenProjectMCPServer:
 
                     filters_json = json.dumps(filters) if filters else None
 
-                    result = await self.client.get_work_packages(
-                        project_id, filters_json
-                    )
+                    result = await self.client.get_work_packages(project_id, filters_json)
                     meetings = result.get("_embedded", {}).get("elements", [])
 
                     # Filter meetings by subject containing "Meeting:"
-                    meetings = [
-                        m
-                        for m in meetings
-                        if m.get("subject", "").startswith("Meeting:")
-                    ]
+                    meetings = [m for m in meetings if m.get("subject", "").startswith("Meeting:")]
 
                     # Post-process status filtering
                     if status == "completed":
                         meetings = [
-                            m
-                            for m in meetings
-                            if m.get("_embedded", {})
-                            .get("status", {})
-                            .get("isClosed", False)
+                            m for m in meetings if m.get("_embedded", {}).get("status", {}).get("isClosed", False)
                         ]
                     elif status == "scheduled":
                         meetings = [
-                            m
-                            for m in meetings
-                            if not m.get("_embedded", {})
-                            .get("status", {})
-                            .get("isClosed", True)
+                            m for m in meetings if not m.get("_embedded", {}).get("status", {}).get("isClosed", True)
                         ]
                     elif status == "cancelled":
                         meetings = [
                             m
                             for m in meetings
-                            if "cancelled"
-                            in m.get("_embedded", {})
-                            .get("status", {})
-                            .get("name", "")
-                            .lower()
+                            if "cancelled" in m.get("_embedded", {}).get("status", {}).get("name", "").lower()
                         ]
 
                     if not meetings:
@@ -1562,9 +1489,7 @@ class OpenProjectMCPServer:
                             else:
                                 meeting_title = subject
 
-                            text += (
-                                f"- **{meeting_title}** (#{meeting.get('id', 'N/A')})\n"
-                            )
+                            text += f"- **{meeting_title}** (#{meeting.get('id', 'N/A')})\n"
 
                             if "_embedded" in meeting:
                                 embedded = meeting["_embedded"]
@@ -1630,7 +1555,10 @@ class OpenProjectMCPServer:
 {agenda_template if agenda_template else 'To be determined'}
 
 ---
-*This work package represents a recurring meeting. Use 'add_meeting_minutes' to add minutes and outcomes after the meeting.*"""
+---
+---
+*This work package represents a recurring meeting.
+Use 'add_meeting_minutes' to add minutes and outcomes after the meeting.*"""
 
                         # Create work package data
                         data = {
@@ -1644,9 +1572,7 @@ class OpenProjectMCPServer:
                         if attendees:
                             data["assignee_id"] = attendees[0]
 
-                        result = await self.client.create_work_package_with_fallback_assignee(
-                            data
-                        )
+                        result = await self.client.create_work_package_with_fallback_assignee(data)
                         created_meetings.append(
                             {
                                 "id": result.get("id"),
@@ -1655,9 +1581,7 @@ class OpenProjectMCPServer:
                             }
                         )
 
-                    text = (
-                        f"✅ Created {len(created_meetings)} recurring meeting(s):\n\n"
-                    )
+                    text = f"✅ Created {len(created_meetings)} recurring meeting(s):\n\n"
                     text += f"- **Series**: {meeting_title}\n"
                     text += f"- **Frequency**: {frequency}\n"
                     text += f"- **Total Meetings**: {len(created_meetings)}\n"
@@ -1710,9 +1634,7 @@ class OpenProjectMCPServer:
         from mcp.server.stdio import stdio_server
 
         async with stdio_server() as (read_stream, write_stream):
-            await self.server.run(
-                read_stream, write_stream, self.server.create_initialization_options()
-            )
+            await self.server.run(read_stream, write_stream, self.server.create_initialization_options())
 
 
 async def main():

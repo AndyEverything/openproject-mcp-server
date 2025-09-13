@@ -7,11 +7,10 @@ It creates projects, users, and other necessary data.
 """
 
 import os
-import sys
 import time
 import requests
 import base64
-from typing import Dict, List
+from typing import Dict
 
 
 class OpenProjectSetup:
@@ -55,9 +54,7 @@ class OpenProjectSetup:
             "description": {"raw": "Test project for end-to-end testing"},
             "public": True,
         }
-        response = requests.post(
-            f"{self.base_url}/api/v3/projects", headers=self.headers, json=data
-        )
+        response = requests.post(f"{self.base_url}/api/v3/projects", headers=self.headers, json=data)
         response.raise_for_status()
         return response.json()
 
@@ -71,9 +68,7 @@ class OpenProjectSetup:
             "password": "test123",
             "status": "active",
         }
-        response = requests.post(
-            f"{self.base_url}/api/v3/users", headers=self.headers, json=data
-        )
+        response = requests.post(f"{self.base_url}/api/v3/users", headers=self.headers, json=data)
         response.raise_for_status()
         return response.json()
 
@@ -100,9 +95,7 @@ class OpenProjectSetup:
         payload = form.get("payload", form_data)
         payload["lockVersion"] = form.get("lockVersion", 0)
 
-        response = requests.post(
-            f"{self.base_url}/api/v3/work_packages", headers=self.headers, json=payload
-        )
+        response = requests.post(f"{self.base_url}/api/v3/work_packages", headers=self.headers, json=payload)
         response.raise_for_status()
         return response.json()
 
@@ -122,9 +115,7 @@ class OpenProjectSetup:
         print(f"Created test user: {user['id']} - {user['name']}")
 
         # Get work package types
-        types_response = requests.get(
-            f"{self.base_url}/api/v3/types", headers=self.headers
-        )
+        types_response = requests.get(f"{self.base_url}/api/v3/types", headers=self.headers)
         types_response.raise_for_status()
         types = types_response.json().get("_embedded", {}).get("elements", [])
 

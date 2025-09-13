@@ -6,11 +6,8 @@ These tests focus on individual components and don't require a running OpenProje
 """
 
 import pytest
-import asyncio
-import sys
 import importlib.util
 from unittest.mock import Mock, AsyncMock, patch
-import json
 
 # Import the MCP server module
 spec = importlib.util.spec_from_file_location("openproject_mcp", "openproject-mcp.py")
@@ -32,9 +29,7 @@ class TestOpenProjectClient:
 
     def test_init_with_proxy(self):
         """Test client initialization with proxy"""
-        client = OpenProjectClient(
-            "https://test.openproject.com", "test-key", "http://proxy:8080"
-        )
+        client = OpenProjectClient("https://test.openproject.com", "test-key", "http://proxy:8080")
         assert client.proxy == "http://proxy:8080"
 
     def test_encode_api_key(self):

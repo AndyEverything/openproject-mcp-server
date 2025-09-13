@@ -8,19 +8,15 @@ by testing against a real OpenProject instance running in Docker.
 
 import os
 import sys
-import json
 import time
 import asyncio
 import logging
-from typing import Dict, List, Any, Optional
-import aiohttp
+from typing import Dict, List, Any
 import requests
 from datetime import datetime, timedelta
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -52,9 +48,7 @@ class OpenProjectTestClient:
     def create_project(self, name: str, description: str = "") -> Dict:
         """Create a test project"""
         data = {"name": name, "description": {"raw": description}, "public": True}
-        response = requests.post(
-            f"{self.base_url}/api/v3/projects", headers=self.headers, json=data
-        )
+        response = requests.post(f"{self.base_url}/api/v3/projects", headers=self.headers, json=data)
         response.raise_for_status()
         return response.json()
 
@@ -68,17 +62,13 @@ class OpenProjectTestClient:
             "password": password,
             "status": "active",
         }
-        response = requests.post(
-            f"{self.base_url}/api/v3/users", headers=self.headers, json=data
-        )
+        response = requests.post(f"{self.base_url}/api/v3/users", headers=self.headers, json=data)
         response.raise_for_status()
         return response.json()
 
     def get_projects(self) -> List[Dict]:
         """Get all projects"""
-        response = requests.get(
-            f"{self.base_url}/api/v3/projects", headers=self.headers
-        )
+        response = requests.get(f"{self.base_url}/api/v3/projects", headers=self.headers)
         response.raise_for_status()
         data = response.json()
         return data.get("_embedded", {}).get("elements", [])
@@ -99,18 +89,14 @@ class OpenProjectTestClient:
 
     def get_priorities(self) -> List[Dict]:
         """Get work package priorities"""
-        response = requests.get(
-            f"{self.base_url}/api/v3/priorities", headers=self.headers
-        )
+        response = requests.get(f"{self.base_url}/api/v3/priorities", headers=self.headers)
         response.raise_for_status()
         data = response.json()
         return data.get("_embedded", {}).get("elements", [])
 
     def get_statuses(self) -> List[Dict]:
         """Get work package statuses"""
-        response = requests.get(
-            f"{self.base_url}/api/v3/statuses", headers=self.headers
-        )
+        response = requests.get(f"{self.base_url}/api/v3/statuses", headers=self.headers)
         response.raise_for_status()
         data = response.json()
         return data.get("_embedded", {}).get("elements", [])
@@ -118,18 +104,14 @@ class OpenProjectTestClient:
     def cleanup_project(self, project_id: int):
         """Delete a project"""
         try:
-            requests.delete(
-                f"{self.base_url}/api/v3/projects/{project_id}", headers=self.headers
-            )
+            requests.delete(f"{self.base_url}/api/v3/projects/{project_id}", headers=self.headers)
         except Exception as e:
             logger.warning(f"Failed to cleanup project {project_id}: {e}")
 
     def cleanup_user(self, user_id: int):
         """Delete a user"""
         try:
-            requests.delete(
-                f"{self.base_url}/api/v3/users/{user_id}", headers=self.headers
-            )
+            requests.delete(f"{self.base_url}/api/v3/users/{user_id}", headers=self.headers)
         except Exception as e:
             logger.warning(f"Failed to cleanup user {user_id}: {e}")
 
@@ -140,9 +122,7 @@ class MCPTestClient:
     def __init__(self, server_url: str):
         self.server_url = server_url
 
-    async def call_tool(
-        self, tool_name: str, arguments: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Call an MCP tool"""
         # Import the MCP server module
         sys.path.append("/app")
@@ -194,9 +174,7 @@ class E2ETestSuite:
 
         # Try to create test project
         try:
-            self.test_project = self.op_client.create_project(
-                "E2E Test Project", "Test project for end-to-end testing"
-            )
+            self.test_project = self.op_client.create_project("E2E Test Project", "Test project for end-to-end testing")
             logger.info(f"Created test project: {self.test_project['id']}")
         except Exception as e:
             logger.warning(f"Failed to create test project: {e}")
@@ -210,9 +188,7 @@ class E2ETestSuite:
 
         # Try to create test user
         try:
-            self.test_user = self.op_client.create_user(
-                "test@example.com", "Test User", "test123"
-            )
+            self.test_user = self.op_client.create_user("test@example.com", "Test User", "test123")
             logger.info(f"Created test user: {self.test_user['id']}")
         except Exception as e:
             logger.warning(f"Failed to create test user: {e}")

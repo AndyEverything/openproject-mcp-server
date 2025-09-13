@@ -9,12 +9,9 @@ import os
 import sys
 import asyncio
 import logging
-from typing import Dict, List, Any, Optional
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -34,13 +31,10 @@ class SimpleE2ETestSuite:
             sys.path.append("/app")
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
-                "openproject_mcp", "/app/openproject-mcp.py"
-            )
+            spec = importlib.util.spec_from_file_location("openproject_mcp", "/app/openproject-mcp.py")
             openproject_mcp = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(openproject_mcp)
             OpenProjectMCPServer = openproject_mcp.OpenProjectMCPServer
-            OpenProjectClient = openproject_mcp.OpenProjectClient
 
             # Create server instance
             server = OpenProjectMCPServer()
@@ -63,9 +57,7 @@ class SimpleE2ETestSuite:
             sys.path.append("/app")
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
-                "openproject_mcp", "/app/openproject-mcp.py"
-            )
+            spec = importlib.util.spec_from_file_location("openproject_mcp", "/app/openproject-mcp.py")
             openproject_mcp = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(openproject_mcp)
             OpenProjectClient = openproject_mcp.OpenProjectClient
@@ -91,9 +83,7 @@ class SimpleE2ETestSuite:
             sys.path.append("/app")
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
-                "openproject_mcp", "/app/openproject-mcp.py"
-            )
+            spec = importlib.util.spec_from_file_location("openproject_mcp", "/app/openproject-mcp.py")
             openproject_mcp = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(openproject_mcp)
             OpenProjectMCPServer = openproject_mcp.OpenProjectMCPServer
@@ -122,9 +112,7 @@ class SimpleE2ETestSuite:
             sys.path.append("/app")
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
-                "openproject_mcp", "/app/openproject-mcp.py"
-            )
+            spec = importlib.util.spec_from_file_location("openproject_mcp", "/app/openproject-mcp.py")
             openproject_mcp = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(openproject_mcp)
             OpenProjectMCPServer = openproject_mcp.OpenProjectMCPServer
@@ -152,9 +140,7 @@ class SimpleE2ETestSuite:
             sys.path.append("/app")
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(
-                "openproject_mcp", "/app/openproject-mcp.py"
-            )
+            spec = importlib.util.spec_from_file_location("openproject_mcp", "/app/openproject-mcp.py")
             openproject_mcp = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(openproject_mcp)
             OpenProjectMCPServer = openproject_mcp.OpenProjectMCPServer
