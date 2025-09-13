@@ -42,7 +42,7 @@ jobs:
 
     - name: Run Black formatter
       run: |
-        uv run black --check --diff .
+        uv run black --check --diff --line-length=120 .
 
     - name: Run Flake8 linter
       run: |
