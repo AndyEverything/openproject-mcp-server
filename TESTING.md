@@ -26,8 +26,8 @@ uv run pre-commit run flake8
 
 ### Configuration
 
-- **Black**: Configured with 88 character line length (see `.pre-commit-config.yaml`)
-- **Flake8**: Configured in `.flake8` file with exclusions for `.venv`, `.git`, etc.
+- **Black**: Configured with 120 character line length (see `.pre-commit-config.yaml`)
+- **Flake8**: Configured in `.flake8` file with 120 character line length and exclusions for `.venv`, `.git`, etc.
 
 ## Test Structure
 
