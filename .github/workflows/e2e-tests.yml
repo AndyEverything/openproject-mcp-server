@@ -42,7 +42,7 @@ jobs:
 
     - name: Run Black formatter
       run: |
-        uv run black --check --diff --line-length=120 .
+        uv run black --check --diff .
 
     - name: Run Flake8 linter
       run: |
@@ -99,6 +99,10 @@ jobs:
   e2e-tests:
     runs-on: ubuntu-latest
     needs: [lint-and-format, unit-tests]
+    if: always() && (needs.lint-and-format.result == 'success' && needs.unit-tests.result == 'success')
+    permissions:
+      contents: read
+      packages: read
 
     steps:
     - name: Checkout code
