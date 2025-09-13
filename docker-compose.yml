@@ -1,0 +1,137 @@
+services:
+  # PostgreSQL database for OpenProject
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: openproject
+      POSTGRES_USER: openproject
+      POSTGRES_PASSWORD: openproject
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openproject -d openproject"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - openproject-network
+
+  # Redis for OpenProject caching and background jobs
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - openproject-network
+
+  # OpenProject application
+  openproject:
+    image: openproject/community:13
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database configuration
+      DATABASE_URL: postgres://openproject:openproject@postgres:5432/openproject
+      
+      # Redis configuration
+      REDIS_URL: redis://redis:6379/0
+      
+      # OpenProject configuration
+      OPENPROJECT_HOST__NAME: localhost:8080
+      OPENPROJECT_HTTPS: "false"
+      OPENPROJECT_SECRET_KEY_BASE: "test-secret-key-base-for-testing-only"
+      
+      # Email configuration (disabled for testing)
+      OPENPROJECT_EMAIL_DELIVERY_METHOD: none
+      
+      # Security configuration
+      OPENPROJECT_SECURE__COOKIES: "false"
+      
+      # Production settings for testing
+      RAILS_ENV: production
+      RAILS_LOG_LEVEL: info
+      
+      # Admin user configuration
+      OPENPROJECT_ADMIN__USER__NAME: admin
+      OPENPROJECT_ADMIN__USER__EMAIL: admin@example.com
+      OPENPROJECT_ADMIN__USER__PASSWORD: admin123
+      
+      # Skip initial setup wizard
+      OPENPROJECT_SKIP__BROWSER__RELOAD: "true"
+    ports:
+      - "8080:8080"
+    volumes:
+      - openproject_data:/var/openproject
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - openproject-network
+
+  # MCP Server
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      openproject:
+        condition: service_healthy
+    environment:
+      # OpenProject configuration
+      OPENPROJECT_URL: http://openproject:8080
+      OPENPROJECT_API_KEY: ${OPENPROJECT_API_KEY:-test-api-key}
+      
+      # Logging
+      LOG_LEVEL: DEBUG
+      TEST_CONNECTION_ON_STARTUP: "true"
+    volumes:
+      - .:/app
+    networks:
+      - openproject-network
+    command: ["python", "/app/openproject-mcp.py"]
+
+  # Test runner
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    depends_on:
+      openproject:
+        condition: service_healthy
+      mcp-server:
+        condition: service_started
+    environment:
+      # Test configuration
+      OPENPROJECT_URL: http://openproject:8080
+      OPENPROJECT_API_KEY: ${OPENPROJECT_API_KEY:-test-api-key}
+      MCP_SERVER_URL: http://mcp-server:8080
+      
+      # Test data
+      TEST_PROJECT_NAME: "E2E Test Project"
+      TEST_USER_EMAIL: "test@example.com"
+      TEST_USER_PASSWORD: "test123"
+    volumes:
+      - .:/app
+    networks:
+      - openproject-network
+    command: ["python", "/app/tests/simple_e2e_test.py"]
+
+volumes:
+  postgres_data:
+  redis_data:
+  openproject_data:
+
+networks:
+  openproject-network:
+    driver: bridge

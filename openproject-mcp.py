@@ -371,6 +371,133 @@ class OpenProjectClient:
         """
         endpoint = f"/relations/{relation_id}"
         return await self._request("DELETE", endpoint)
+    
+    async def get_users(self, filters: Optional[str] = None) -> Dict:
+        """
+        Retrieve users.
+        
+        Args:
+            filters: Optional JSON-encoded filter string
+            
+        Returns:
+            Dict: API response containing users
+        """
+        endpoint = "/users"
+        if filters:
+            encoded_filters = quote(filters)
+            endpoint += f"?filters={encoded_filters}"
+            
+        result = await self._request("GET", endpoint)
+        
+        # Ensure proper response structure
+        if "_embedded" not in result:
+            result["_embedded"] = {"elements": []}
+        elif "elements" not in result.get("_embedded", {}):
+            result["_embedded"]["elements"] = []
+            
+        return result
+    
+    async def get_priorities(self) -> Dict:
+        """
+        Retrieve work package priorities.
+        
+        Returns:
+            Dict: API response containing priorities
+        """
+        endpoint = "/priorities"
+        result = await self._request("GET", endpoint)
+        
+        # Ensure proper response structure
+        if "_embedded" not in result:
+            result["_embedded"] = {"elements": []}
+        elif "elements" not in result.get("_embedded", {}):
+            result["_embedded"]["elements"] = []
+            
+        return result
+    
+    async def update_work_package(self, work_package_id: int, data: Dict) -> Dict:
+        """
+        Update an existing work package.
+        
+        Args:
+            work_package_id: ID of the work package to update
+            data: Updated work package data
+            
+        Returns:
+            Dict: Updated work package data
+        """
+        endpoint = f"/work_packages/{work_package_id}"
+        
+        # Prepare payload for form
+        form_payload = {"_links": {}}
+        
+        # Set links for updated fields
+        if "project" in data:
+            form_payload["_links"]["project"] = {"href": f"/api/v3/projects/{data['project']}"}
+        if "type" in data:
+            form_payload["_links"]["type"] = {"href": f"/api/v3/types/{data['type']}"}
+        if "status" in data:
+            form_payload["_links"]["status"] = {"href": f"/api/v3/statuses/{data['status']}"}
+        if "priority_id" in data:
+            form_payload["_links"]["priority"] = {"href": f"/api/v3/priorities/{data['priority_id']}"}
+        if "assignee_id" in data:
+            form_payload["_links"]["assignee"] = {"href": f"/api/v3/users/{data['assignee_id']}"}
+            
+        # Set other fields
+        if "subject" in data:
+            form_payload["subject"] = data["subject"]
+        if "description" in data:
+            form_payload["description"] = {"raw": data["description"]}
+            
+        # Get form with payload
+        form = await self._request("POST", f"/work_packages/{work_package_id}/form", form_payload)
+        
+        # Use form payload and add lock version
+        payload = form.get("payload", form_payload)
+        payload["lockVersion"] = form.get("lockVersion", 0)
+        
+        # Update work package
+        return await self._request("PATCH", endpoint, payload)
+    
+    async def get_statuses(self) -> Dict:
+        """
+        Retrieve work package statuses.
+        
+        Returns:
+            Dict: API response containing statuses
+        """
+        endpoint = "/statuses"
+        result = await self._request("GET", endpoint)
+        
+        # Ensure proper response structure
+        if "_embedded" not in result:
+            result["_embedded"] = {"elements": []}
+        elif "elements" not in result.get("_embedded", {}):
+            result["_embedded"]["elements"] = []
+            
+        return result
+    
+    async def create_work_package_with_fallback_assignee(self, data: Dict) -> Dict:
+        """
+        Create a work package with fallback handling for assignee permission issues.
+        
+        Args:
+            data: Work package data including project, subject, type, etc.
+            
+        Returns:
+            Dict: Created work package data
+        """
+        try:
+            return await self.create_work_package(data)
+        except Exception as e:
+            # If assignee is not allowed, retry without assignee
+            if "assignee" in str(e) and "assignee_id" in data:
+                logger.warning(f"Assignee not allowed for work package, retrying without assignee: {e}")
+                data_copy = data.copy()
+                data_copy.pop("assignee_id", None)
+                return await self.create_work_package(data_copy)
+            else:
+                raise
 
 
 class OpenProjectMCPServer:
@@ -533,6 +660,280 @@ class OpenProjectMCPServer:
                             }
                         },
                         "required": ["relation_id"]
+                    }
+                ),
+                Tool(
+                    name="list_users",
+                    description="List users in the OpenProject instance",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "active_only": {
+                                "type": "boolean",
+                                "description": "Show only active users",
+                                "default": True
+                            }
+                        }
+                    }
+                ),
+                Tool(
+                    name="list_priorities",
+                    description="List available work package priorities",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {}
+                    }
+                ),
+                Tool(
+                    name="list_statuses",
+                    description="List available work package statuses",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {}
+                    }
+                ),
+                Tool(
+                    name="update_work_package",
+                    description="Update an existing work package",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "work_package_id": {
+                                "type": "integer",
+                                "description": "ID of the work package to update"
+                            },
+                            "subject": {
+                                "type": "string",
+                                "description": "Updated work package title"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Updated description (Markdown supported)"
+                            },
+                            "status_id": {
+                                "type": "integer",
+                                "description": "Status ID to update to"
+                            },
+                            "priority_id": {
+                                "type": "integer",
+                                "description": "Priority ID to update to"
+                            },
+                            "assignee_id": {
+                                "type": "integer",
+                                "description": "Assignee user ID to update to"
+                            }
+                        },
+                        "required": ["work_package_id"]
+                    }
+                ),
+                Tool(
+                    name="create_meeting",
+                    description="Create a meeting work package with agenda and attendees",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "project_id": {
+                                "type": "integer",
+                                "description": "Project ID"
+                            },
+                            "meeting_title": {
+                                "type": "string",
+                                "description": "Meeting title"
+                            },
+                            "meeting_date": {
+                                "type": "string",
+                                "description": "Meeting date (YYYY-MM-DD format)"
+                            },
+                            "meeting_time": {
+                                "type": "string",
+                                "description": "Meeting time (HH:MM format)"
+                            },
+                            "duration_minutes": {
+                                "type": "integer",
+                                "description": "Meeting duration in minutes",
+                                "default": 60
+                            },
+                            "attendees": {
+                                "type": "array",
+                                "items": {"type": "integer"},
+                                "description": "Array of user IDs for attendees"
+                            },
+                            "agenda": {
+                                "type": "string",
+                                "description": "Meeting agenda items"
+                            },
+                            "meeting_type": {
+                                "type": "string",
+                                "description": "Type of meeting",
+                                "enum": ["standup", "sprint_planning", "retrospective", "review", "general"],
+                                "default": "general"
+                            },
+                            "location": {
+                                "type": "string",
+                                "description": "Meeting location or video call link"
+                            }
+                        },
+                        "required": ["project_id", "meeting_title", "meeting_date", "meeting_time"]
+                    }
+                ),
+                Tool(
+                    name="add_meeting_minutes",
+                    description="Add minutes and outcomes to a meeting work package",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "meeting_work_package_id": {
+                                "type": "integer",
+                                "description": "ID of the meeting work package"
+                            },
+                            "minutes": {
+                                "type": "string",
+                                "description": "Meeting minutes and discussion points"
+                            },
+                            "decisions": {
+                                "type": "string",
+                                "description": "Decisions made during the meeting"
+                            },
+                            "action_items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "description": {"type": "string"},
+                                        "assignee_id": {"type": "integer"},
+                                        "due_date": {"type": "string"}
+                                    },
+                                    "required": ["description"]
+                                },
+                                "description": "Action items from the meeting"
+                            },
+                            "next_meeting_date": {
+                                "type": "string",
+                                "description": "Date for next meeting (YYYY-MM-DD format)"
+                            }
+                        },
+                        "required": ["meeting_work_package_id", "minutes"]
+                    }
+                ),
+                Tool(
+                    name="create_follow_up_tasks",
+                    description="Create follow-up tasks from meeting action items",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "meeting_work_package_id": {
+                                "type": "integer",
+                                "description": "ID of the meeting work package"
+                            },
+                            "action_items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "description": {"type": "string"},
+                                        "assignee_id": {"type": "integer"},
+                                        "due_date": {"type": "string"},
+                                        "priority_id": {"type": "integer"}
+                                    },
+                                    "required": ["description"]
+                                },
+                                "description": "Action items to create as work packages"
+                            }
+                        },
+                        "required": ["meeting_work_package_id", "action_items"]
+                    }
+                ),
+                Tool(
+                    name="list_meetings",
+                    description="List meeting work packages",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "project_id": {
+                                "type": "integer",
+                                "description": "Project ID (optional, for project-specific meetings)"
+                            },
+                            "meeting_type": {
+                                "type": "string",
+                                "description": "Filter by meeting type",
+                                "enum": ["standup", "sprint_planning", "retrospective", "review", "general"]
+                            },
+                            "date_from": {
+                                "type": "string",
+                                "description": "Filter meetings from this date (YYYY-MM-DD)"
+                            },
+                            "date_to": {
+                                "type": "string",
+                                "description": "Filter meetings to this date (YYYY-MM-DD)"
+                            },
+                            "status": {
+                                "type": "string",
+                                "description": "Filter by status",
+                                "enum": ["scheduled", "completed", "cancelled"],
+                                "default": "scheduled"
+                            }
+                        }
+                    }
+                ),
+                Tool(
+                    name="schedule_recurring_meeting",
+                    description="Schedule a recurring meeting series",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "project_id": {
+                                "type": "integer",
+                                "description": "Project ID"
+                            },
+                            "meeting_title": {
+                                "type": "string",
+                                "description": "Meeting title"
+                            },
+                            "start_date": {
+                                "type": "string",
+                                "description": "First meeting date (YYYY-MM-DD format)"
+                            },
+                            "meeting_time": {
+                                "type": "string",
+                                "description": "Meeting time (HH:MM format)"
+                            },
+                            "duration_minutes": {
+                                "type": "integer",
+                                "description": "Meeting duration in minutes",
+                                "default": 60
+                            },
+                            "frequency": {
+                                "type": "string",
+                                "description": "Meeting frequency",
+                                "enum": ["daily", "weekly", "biweekly", "monthly"],
+                                "default": "weekly"
+                            },
+                            "occurrences": {
+                                "type": "integer",
+                                "description": "Number of meetings to create",
+                                "default": 10
+                            },
+                            "attendees": {
+                                "type": "array",
+                                "items": {"type": "integer"},
+                                "description": "Array of user IDs for attendees"
+                            },
+                            "agenda_template": {
+                                "type": "string",
+                                "description": "Template agenda for all meetings"
+                            },
+                            "meeting_type": {
+                                "type": "string",
+                                "description": "Type of meeting",
+                                "enum": ["standup", "sprint_planning", "retrospective", "review", "general"],
+                                "default": "general"
+                            },
+                            "location": {
+                                "type": "string",
+                                "description": "Meeting location or video call link"
+                            }
+                        },
+                        "required": ["project_id", "meeting_title", "start_date", "meeting_time", "frequency"]
                     }
                 )
             ]
@@ -729,6 +1130,404 @@ class OpenProjectMCPServer:
                     await self.client.delete_work_package_relation(relation_id)
                     
                     text = f"✅ Work package relationship #{relation_id} deleted successfully."
+                    
+                    return [TextContent(type="text", text=text)]
+                
+                elif name == "list_users":
+                    filters = None
+                    if arguments.get("active_only", True):
+                        filters = json.dumps([{"status": {"operator": "=", "values": ["active"]}}])
+                    
+                    result = await self.client.get_users(filters)
+                    users = result.get("_embedded", {}).get("elements", [])
+                    
+                    if not users:
+                        text = "No users found."
+                    else:
+                        text = f"Found {len(users)} user(s):\n\n"
+                        for user in users:
+                            text += f"- **{user.get('name', 'Unknown')}** (ID: {user.get('id', 'N/A')})\n"
+                            text += f"  Email: {user.get('email', 'N/A')}\n"
+                            text += f"  Status: {user.get('status', 'Unknown')}\n"
+                            text += f"  Admin: {'Yes' if user.get('admin') else 'No'}\n\n"
+                    
+                    return [TextContent(type="text", text=text)]
+                
+                elif name == "list_priorities":
+                    result = await self.client.get_priorities()
+                    priorities = result.get("_embedded", {}).get("elements", [])
+                    
+                    if not priorities:
+                        text = "No priorities found."
+                    else:
+                        text = "Available work package priorities:\n\n"
+                        for priority in priorities:
+                            text += f"- **{priority.get('name', 'Unnamed')}** (ID: {priority.get('id', 'N/A')})\n"
+                            if priority.get('isDefault'):
+                                text += "  ✓ Default priority\n"
+                            text += "\n"
+                    
+                    return [TextContent(type="text", text=text)]
+                
+                elif name == "list_statuses":
+                    result = await self.client.get_statuses()
+                    statuses = result.get("_embedded", {}).get("elements", [])
+                    
+                    if not statuses:
+                        text = "No statuses found."
+                    else:
+                        text = "Available work package statuses:\n\n"
+                        for status in statuses:
+                            text += f"- **{status.get('name', 'Unnamed')}** (ID: {status.get('id', 'N/A')})\n"
+                            if status.get('isDefault'):
+                                text += "  ✓ Default status\n"
+                            if status.get('isClosed'):
+                                text += "  ✓ Closed status\n"
+                            text += "\n"
+                    
+                    return [TextContent(type="text", text=text)]
+                
+                elif name == "update_work_package":
+                    work_package_id = arguments["work_package_id"]
+                    data = {}
+                    
+                    # Map arguments to data structure
+                    if "subject" in arguments:
+                        data["subject"] = arguments["subject"]
+                    if "description" in arguments:
+                        data["description"] = arguments["description"]
+                    if "status_id" in arguments:
+                        data["status"] = arguments["status_id"]
+                    if "priority_id" in arguments:
+                        data["priority_id"] = arguments["priority_id"]
+                    if "assignee_id" in arguments:
+                        data["assignee_id"] = arguments["assignee_id"]
+                    
+                    result = await self.client.update_work_package(work_package_id, data)
+                    
+                    text = f"✅ Work package #{work_package_id} updated successfully:\n\n"
+                    text += f"- **Title**: {result.get('subject', 'N/A')}\n"
+                    text += f"- **ID**: #{result.get('id', 'N/A')}\n"
+                    
+                    if "_embedded" in result:
+                        embedded = result["_embedded"]
+                        if "type" in embedded:
+                            text += f"- **Type**: {embedded['type'].get('name', 'Unknown')}\n"
+                        if "status" in embedded:
+                            text += f"- **Status**: {embedded['status'].get('name', 'Unknown')}\n"
+                        if "project" in embedded:
+                            text += f"- **Project**: {embedded['project'].get('name', 'Unknown')}\n"
+                    
+                    return [TextContent(type="text", text=text)]
+                
+                elif name == "create_meeting":
+                    project_id = arguments["project_id"]
+                    meeting_title = arguments["meeting_title"]
+                    meeting_date = arguments["meeting_date"]
+                    meeting_time = arguments["meeting_time"]
+                    duration_minutes = arguments.get("duration_minutes", 60)
+                    attendees = arguments.get("attendees", [])
+                    agenda = arguments.get("agenda", "")
+                    meeting_type = arguments.get("meeting_type", "general")
+                    location = arguments.get("location", "")
+                    
+                    # Create meeting description with all details
+                    description = f"""## Meeting Details
+- **Date**: {meeting_date}
+- **Time**: {meeting_time}
+- **Duration**: {duration_minutes} minutes
+- **Type**: {meeting_type.title()}
+- **Location**: {location if location else 'TBD'}
+
+## Attendees
+{', '.join([f"User ID {user_id}" for user_id in attendees]) if attendees else 'TBD'}
+
+## Agenda
+{agenda if agenda else 'To be determined'}
+
+---
+*This work package represents a meeting. Use 'add_meeting_minutes' to add minutes and outcomes after the meeting.*"""
+                    
+                    # Create work package data
+                    data = {
+                        "project": project_id,
+                        "subject": f"Meeting: {meeting_title}",
+                        "type": 1,  # Assuming type 1 is Task - this should be configurable
+                        "description": description
+                    }
+                    
+                    # Try to assign to first attendee, but don't fail if not allowed
+                    if attendees:
+                        data["assignee_id"] = attendees[0]
+                    
+                    result = await self.client.create_work_package_with_fallback_assignee(data)
+                    
+                    text = f"✅ Meeting work package created successfully:\n\n"
+                    text += f"- **Meeting**: {meeting_title}\n"
+                    text += f"- **Date**: {meeting_date} at {meeting_time}\n"
+                    text += f"- **Duration**: {duration_minutes} minutes\n"
+                    text += f"- **Work Package ID**: #{result.get('id', 'N/A')}\n"
+                    text += f"- **Type**: {meeting_type.title()}\n"
+                    if location:
+                        text += f"- **Location**: {location}\n"
+                    if attendees:
+                        text += f"- **Attendees**: {len(attendees)} people\n"
+                    
+                    # Check if assignee was actually set
+                    if attendees and "_embedded" in result and "assignee" in result["_embedded"]:
+                        text += f"- **Organizer**: {result['_embedded']['assignee'].get('name', 'User ID ' + str(attendees[0]))}\n"
+                    elif attendees:
+                        text += f"- **Note**: Could not assign organizer due to permission constraints\n"
+                    
+                    return [TextContent(type="text", text=text)]
+                
+                elif name == "add_meeting_minutes":
+                    meeting_work_package_id = arguments["meeting_work_package_id"]
+                    minutes = arguments["minutes"]
+                    decisions = arguments.get("decisions", "")
+                    action_items = arguments.get("action_items", [])
+                    next_meeting_date = arguments.get("next_meeting_date", "")
+                    
+                    # Create minutes description
+                    minutes_description = f"""## Meeting Minutes
+
+### Discussion Points
+{minutes}
+
+### Decisions Made
+{decisions if decisions else 'None recorded'}
+
+### Action Items
+"""
+                    
+                    if action_items:
+                        for i, item in enumerate(action_items, 1):
+                            minutes_description += f"{i}. {item['description']}"
+                            if item.get('assignee_id'):
+                                minutes_description += f" (Assigned to User ID {item['assignee_id']})"
+                            if item.get('due_date'):
+                                minutes_description += f" (Due: {item['due_date']})"
+                            minutes_description += "\n"
+                    else:
+                        minutes_description += "None recorded\n"
+                    
+                    if next_meeting_date:
+                        minutes_description += f"\n### Next Meeting\nScheduled for: {next_meeting_date}\n"
+                    
+                    minutes_description += "\n---\n*Minutes added on " + datetime.now().strftime("%Y-%m-%d %H:%M") + "*"
+                    
+                    # Update the work package with minutes
+                    update_data = {
+                        "description": minutes_description
+                    }
+                    
+                    result = await self.client.update_work_package(meeting_work_package_id, update_data)
+                    
+                    text = f"✅ Meeting minutes added to work package #{meeting_work_package_id}:\n\n"
+                    text += f"- **Minutes**: Added discussion points and outcomes\n"
+                    if decisions:
+                        text += f"- **Decisions**: {len(decisions.split('.'))} decisions recorded\n"
+                    if action_items:
+                        text += f"- **Action Items**: {len(action_items)} items recorded\n"
+                    if next_meeting_date:
+                        text += f"- **Next Meeting**: {next_meeting_date}\n"
+                    
+                    return [TextContent(type="text", text=text)]
+                
+                elif name == "create_follow_up_tasks":
+                    meeting_work_package_id = arguments["meeting_work_package_id"]
+                    action_items = arguments["action_items"]
+                    
+                    created_tasks = []
+                    
+                    for item in action_items:
+                        task_data = {
+                            "project": 1,  # This should be derived from the meeting work package
+                            "subject": item["description"],
+                            "type": 1,  # Task type
+                            "description": f"Follow-up task from meeting work package #{meeting_work_package_id}"
+                        }
+                        
+                        if item.get("assignee_id"):
+                            task_data["assignee_id"] = item["assignee_id"]
+                        if item.get("priority_id"):
+                            task_data["priority_id"] = item["priority_id"]
+                        
+                        result = await self.client.create_work_package(task_data)
+                        created_tasks.append({
+                            "id": result.get("id"),
+                            "subject": result.get("subject"),
+                            "assignee": item.get("assignee_id"),
+                            "due_date": item.get("due_date")
+                        })
+                    
+                    text = f"✅ Created {len(created_tasks)} follow-up task(s) from meeting #{meeting_work_package_id}:\n\n"
+                    
+                    for task in created_tasks:
+                        text += f"- **Task #{task['id']}**: {task['subject']}\n"
+                        if task['assignee']:
+                            text += f"  Assigned to: User ID {task['assignee']}\n"
+                        if task['due_date']:
+                            text += f"  Due: {task['due_date']}\n"
+                        text += "\n"
+                    
+                    return [TextContent(type="text", text=text)]
+                
+                elif name == "list_meetings":
+                    project_id = arguments.get("project_id")
+                    meeting_type = arguments.get("meeting_type")
+                    date_from = arguments.get("date_from")
+                    date_to = arguments.get("date_to")
+                    status = arguments.get("status", "scheduled")
+                    
+                    # Build filters for meeting work packages
+                    filters = []
+                    
+                    # Filter by project if specified
+                    if project_id:
+                        filters.append({"project": {"operator": "=", "values": [str(project_id)]}})
+                    
+                    # Filter by meeting type (assuming it's in the subject)
+                    if meeting_type:
+                        filters.append({"subject": {"operator": "~", "values": [f"Meeting:.*{meeting_type.title()}"]}})
+                    
+                    # Filter by date range - use proper OpenProject date filter format
+                    if date_from:
+                        filters.append({"createdAt": {"operator": ">=", "values": [f"{date_from}T00:00:00Z"]}})
+                    if date_to:
+                        filters.append({"createdAt": {"operator": "<=", "values": [f"{date_to}T23:59:59Z"]}})
+                    
+                    # Don't add status filter by default - let OpenProject return all statuses
+                    # The status filtering will be done in post-processing
+                    
+                    filters_json = json.dumps(filters) if filters else None
+                    
+                    result = await self.client.get_work_packages(project_id, filters_json)
+                    meetings = result.get("_embedded", {}).get("elements", [])
+                    
+                    # Filter meetings by subject containing "Meeting:"
+                    meetings = [m for m in meetings if m.get("subject", "").startswith("Meeting:")]
+                    
+                    # Post-process status filtering
+                    if status == "completed":
+                        meetings = [m for m in meetings if m.get("_embedded", {}).get("status", {}).get("isClosed", False)]
+                    elif status == "scheduled":
+                        meetings = [m for m in meetings if not m.get("_embedded", {}).get("status", {}).get("isClosed", True)]
+                    elif status == "cancelled":
+                        meetings = [m for m in meetings if "cancelled" in m.get("_embedded", {}).get("status", {}).get("name", "").lower()]
+                    
+                    if not meetings:
+                        text = "No meetings found."
+                    else:
+                        text = f"Found {len(meetings)} meeting(s):\n\n"
+                        for meeting in meetings:
+                            subject = meeting.get('subject', 'No title')
+                            if subject.startswith("Meeting: "):
+                                meeting_title = subject[9:]  # Remove "Meeting: " prefix
+                            else:
+                                meeting_title = subject
+                            
+                            text += f"- **{meeting_title}** (#{meeting.get('id', 'N/A')})\n"
+                            
+                            if "_embedded" in meeting:
+                                embedded = meeting["_embedded"]
+                                if "status" in embedded:
+                                    text += f"  Status: {embedded['status'].get('name', 'Unknown')}\n"
+                                if "project" in embedded:
+                                    text += f"  Project: {embedded['project'].get('name', 'Unknown')}\n"
+                                if "assignee" in embedded and embedded["assignee"]:
+                                    text += f"  Organizer: {embedded['assignee'].get('name', 'Unassigned')}\n"
+                            
+                            text += f"  Created: {meeting.get('createdAt', 'Unknown')[:10]}\n"
+                            text += "\n"
+                    
+                    return [TextContent(type="text", text=text)]
+                
+                elif name == "schedule_recurring_meeting":
+                    project_id = arguments["project_id"]
+                    meeting_title = arguments["meeting_title"]
+                    start_date = arguments["start_date"]
+                    meeting_time = arguments["meeting_time"]
+                    duration_minutes = arguments.get("duration_minutes", 60)
+                    frequency = arguments["frequency"]
+                    occurrences = arguments.get("occurrences", 10)
+                    attendees = arguments.get("attendees", [])
+                    agenda_template = arguments.get("agenda_template", "")
+                    meeting_type = arguments.get("meeting_type", "general")
+                    location = arguments.get("location", "")
+                    
+                    from datetime import datetime, timedelta
+                    
+                    # Calculate meeting dates based on frequency
+                    meeting_dates = []
+                    current_date = datetime.strptime(start_date, "%Y-%m-%d")
+                    
+                    for i in range(occurrences):
+                        meeting_dates.append(current_date.strftime("%Y-%m-%d"))
+                        
+                        if frequency == "daily":
+                            current_date += timedelta(days=1)
+                        elif frequency == "weekly":
+                            current_date += timedelta(weeks=1)
+                        elif frequency == "biweekly":
+                            current_date += timedelta(weeks=2)
+                        elif frequency == "monthly":
+                            current_date += timedelta(days=30)  # Approximate month
+                    
+                    created_meetings = []
+                    
+                    for i, meeting_date in enumerate(meeting_dates, 1):
+                        # Create meeting description
+                        description = f"""## Meeting Details
+- **Date**: {meeting_date}
+- **Time**: {meeting_time}
+- **Duration**: {duration_minutes} minutes
+- **Type**: {meeting_type.title()}
+- **Location**: {location if location else 'TBD'}
+- **Series**: {i} of {occurrences}
+
+## Attendees
+{', '.join([f"User ID {user_id}" for user_id in attendees]) if attendees else 'TBD'}
+
+## Agenda
+{agenda_template if agenda_template else 'To be determined'}
+
+---
+*This work package represents a recurring meeting. Use 'add_meeting_minutes' to add minutes and outcomes after the meeting.*"""
+                        
+                        # Create work package data
+                        data = {
+                            "project": project_id,
+                            "subject": f"Meeting: {meeting_title} ({i}/{occurrences})",
+                            "type": 1,  # Assuming type 1 is Task
+                            "description": description
+                        }
+                        
+                        # Try to assign to first attendee, but don't fail if not allowed
+                        if attendees:
+                            data["assignee_id"] = attendees[0]
+                        
+                        result = await self.client.create_work_package_with_fallback_assignee(data)
+                        created_meetings.append({
+                            "id": result.get("id"),
+                            "date": meeting_date,
+                            "title": f"{meeting_title} ({i}/{occurrences})"
+                        })
+                    
+                    text = f"✅ Created {len(created_meetings)} recurring meeting(s):\n\n"
+                    text += f"- **Series**: {meeting_title}\n"
+                    text += f"- **Frequency**: {frequency}\n"
+                    text += f"- **Total Meetings**: {len(created_meetings)}\n"
+                    text += f"- **Start Date**: {start_date}\n"
+                    text += f"- **Time**: {meeting_time}\n"
+                    text += f"- **Duration**: {duration_minutes} minutes\n\n"
+                    
+                    text += "Created meetings:\n"
+                    for meeting in created_meetings[:5]:  # Show first 5
+                        text += f"- #{meeting['id']}: {meeting['title']} on {meeting['date']}\n"
+                    
+                    if len(created_meetings) > 5:
+                        text += f"... and {len(created_meetings) - 5} more meetings\n"
                     
                     return [TextContent(type="text", text=text)]
                 

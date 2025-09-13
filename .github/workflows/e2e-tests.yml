@@ -1,0 +1,65 @@
+name: End-to-End Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+        
+    - name: Install dependencies
+      run: |
+        uv sync --extra dev
+        
+    - name: Start OpenProject and MCP Server
+      run: |
+        # Generate a test API key
+        export OPENPROJECT_API_KEY="test-api-key-$(date +%s)"
+        
+        # Start services
+        docker compose up -d
+        
+        # Wait for services to be ready
+        timeout 300 bash -c 'until curl -f http://localhost:8080/; do sleep 10; done'
+        
+    - name: Run E2E tests
+      run: |
+        export OPENPROJECT_URL="http://localhost:8080"
+        export OPENPROJECT_API_KEY="test-api-key-$(date +%s)"
+        export MCP_SERVER_URL="http://localhost:8080"
+        
+        # Run the E2E test suite
+        docker compose run --rm test-runner
+        
+    - name: Stop services
+      if: always()
+      run: |
+        docker compose down -v
+        
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: |
+          test-results/
+          logs/
+        retention-days: 7

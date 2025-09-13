@@ -2,3 +2,6 @@ mcp
 aiohttp
 python-dotenv
 certifi
+pytest
+pytest-asyncio
+requests
