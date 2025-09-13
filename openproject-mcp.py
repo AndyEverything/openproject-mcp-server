@@ -1556,7 +1556,6 @@ class OpenProjectMCPServer:
 
 ---
 ---
----
 *This work package represents a recurring meeting.
 Use 'add_meeting_minutes' to add minutes and outcomes after the meeting.*"""
 
