@@ -300,6 +300,77 @@ class OpenProjectClient:
             result["_embedded"]["elements"] = []
             
         return result
+    
+    async def create_work_package_relation(
+        self, 
+        work_package_id: int, 
+        relation_type: str, 
+        target_work_package_id: int,
+        description: Optional[str] = None,
+        lag: Optional[int] = None
+    ) -> Dict:
+        """
+        Create a relationship between two work packages.
+        
+        Args:
+            work_package_id: ID of the source work package
+            relation_type: Type of relationship ("blocks", "follows", "relates", "duplicates", "includes", "requires")
+            target_work_package_id: ID of the target work package
+            description: Optional description of the relationship
+            lag: Optional lag in days (for "follows" relationships)
+            
+        Returns:
+            Dict: Created relationship data
+        """
+        endpoint = f"/work_packages/{work_package_id}/relations"
+        
+        payload = {
+            "_links": {
+                "to": {"href": f"/api/v3/work_packages/{target_work_package_id}"}
+            },
+            "type": relation_type
+        }
+        
+        if description:
+            payload["description"] = description
+        if lag is not None:
+            payload["lag"] = lag
+            
+        return await self._request("POST", endpoint, payload)
+    
+    async def get_work_package_relations(self, work_package_id: int) -> Dict:
+        """
+        Get all relationships for a work package.
+        
+        Args:
+            work_package_id: ID of the work package
+            
+        Returns:
+            Dict: API response containing relationships
+        """
+        endpoint = f"/work_packages/{work_package_id}/relations"
+        result = await self._request("GET", endpoint)
+        
+        # Ensure proper response structure
+        if "_embedded" not in result:
+            result["_embedded"] = {"elements": []}
+        elif "elements" not in result.get("_embedded", {}):
+            result["_embedded"]["elements"] = []
+            
+        return result
+    
+    async def delete_work_package_relation(self, relation_id: int) -> Dict:
+        """
+        Delete a work package relationship.
+        
+        Args:
+            relation_id: ID of the relationship to delete
+            
+        Returns:
+            Dict: API response
+        """
+        endpoint = f"/relations/{relation_id}"
+        return await self._request("DELETE", endpoint)
 
 
 class OpenProjectMCPServer:
@@ -403,6 +474,65 @@ class OpenProjectMCPServer:
                             }
                         },
                         "required": ["project_id", "subject", "type_id"]
+                    }
+                ),
+                Tool(
+                    name="create_work_package_relation",
+                    description="Create a relationship between two work packages",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "work_package_id": {
+                                "type": "integer",
+                                "description": "ID of the source work package"
+                            },
+                            "relation_type": {
+                                "type": "string",
+                                "description": "Type of relationship",
+                                "enum": ["blocks", "follows", "relates", "duplicates", "includes", "requires"]
+                            },
+                            "target_work_package_id": {
+                                "type": "integer",
+                                "description": "ID of the target work package"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Optional description of the relationship"
+                            },
+                            "lag": {
+                                "type": "integer",
+                                "description": "Lag in days (for 'follows' relationships)"
+                            }
+                        },
+                        "required": ["work_package_id", "relation_type", "target_work_package_id"]
+                    }
+                ),
+                Tool(
+                    name="list_work_package_relations",
+                    description="List all relationships for a work package",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "work_package_id": {
+                                "type": "integer",
+                                "description": "ID of the work package"
+                            }
+                        },
+                        "required": ["work_package_id"]
+                    }
+                ),
+                Tool(
+                    name="delete_work_package_relation",
+                    description="Delete a work package relationship",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "relation_id": {
+                                "type": "integer",
+                                "description": "ID of the relationship to delete"
+                            }
+                        },
+                        "required": ["relation_id"]
                     }
                 )
             ]
@@ -533,6 +663,72 @@ class OpenProjectMCPServer:
                             text += f"- **Status**: {embedded['status'].get('name', 'Unknown')}\n"
                         if "project" in embedded:
                             text += f"- **Project**: {embedded['project'].get('name', 'Unknown')}\n"
+                    
+                    return [TextContent(type="text", text=text)]
+                
+                elif name == "create_work_package_relation":
+                    work_package_id = arguments["work_package_id"]
+                    relation_type = arguments["relation_type"]
+                    target_work_package_id = arguments["target_work_package_id"]
+                    description = arguments.get("description")
+                    lag = arguments.get("lag")
+                    
+                    result = await self.client.create_work_package_relation(
+                        work_package_id, relation_type, target_work_package_id, description, lag
+                    )
+                    
+                    text = f"✅ Work package relationship created successfully:\n\n"
+                    text += f"- **From Work Package**: #{work_package_id}\n"
+                    text += f"- **To Work Package**: #{target_work_package_id}\n"
+                    text += f"- **Relationship Type**: {relation_type}\n"
+                    text += f"- **Relationship ID**: {result.get('id', 'N/A')}\n"
+                    
+                    if description:
+                        text += f"- **Description**: {description}\n"
+                    if lag is not None:
+                        text += f"- **Lag**: {lag} days\n"
+                    
+                    return [TextContent(type="text", text=text)]
+                
+                elif name == "list_work_package_relations":
+                    work_package_id = arguments["work_package_id"]
+                    
+                    result = await self.client.get_work_package_relations(work_package_id)
+                    relations = result.get("_embedded", {}).get("elements", [])
+                    
+                    if not relations:
+                        text = f"No relationships found for work package #{work_package_id}."
+                    else:
+                        text = f"Found {len(relations)} relationship(s) for work package #{work_package_id}:\n\n"
+                        
+                        for relation in relations:
+                            text += f"- **Relationship #{relation.get('id', 'N/A')}**\n"
+                            text += f"  Type: {relation.get('type', 'Unknown')}\n"
+                            
+                            if "_embedded" in relation:
+                                embedded = relation["_embedded"]
+                                if "to" in embedded:
+                                    to_wp = embedded["to"]
+                                    text += f"  Target: #{to_wp.get('id', 'N/A')} - {to_wp.get('subject', 'No title')}\n"
+                                if "from" in embedded:
+                                    from_wp = embedded["from"]
+                                    text += f"  Source: #{from_wp.get('id', 'N/A')} - {from_wp.get('subject', 'No title')}\n"
+                            
+                            if relation.get("description"):
+                                text += f"  Description: {relation['description']}\n"
+                            if relation.get("lag") is not None:
+                                text += f"  Lag: {relation['lag']} days\n"
+                            
+                            text += "\n"
+                    
+                    return [TextContent(type="text", text=text)]
+                
+                elif name == "delete_work_package_relation":
+                    relation_id = arguments["relation_id"]
+                    
+                    await self.client.delete_work_package_relation(relation_id)
+                    
+                    text = f"✅ Work package relationship #{relation_id} deleted successfully."
                     
                     return [TextContent(type="text", text=text)]
                 

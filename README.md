@@ -9,6 +9,7 @@ A Model Context Protocol (MCP) server that provides seamless integration with [O
 - 🔌 **Full OpenProject API v3 Integration**
 - 📋 **Project Management**: List and filter projects
 - 📝 **Work Package Management**: Create, list, and filter work packages
+- 🔗 **Work Package Relationships**: Create, list, and delete relationships (blocks, follows, relates to, etc.)
 - 🏷️ **Type Management**: List available work package types
 - 🔐 **Secure Authentication**: API key-based authentication
 - 🌐 **Proxy Support**: Optional HTTP proxy configuration
@@ -214,6 +215,56 @@ Create a new work package.
 ```
 Create a new task in project 5 titled "Update documentation" with type ID 1
 ```
+
+#### 6. `create_work_package_relation`
+Create a relationship between two work packages.
+
+**Parameters:**
+- `work_package_id` (integer, required): ID of the source work package
+- `relation_type` (string, required): Type of relationship - "blocks", "follows", "relates", "duplicates", "includes", or "requires"
+- `target_work_package_id` (integer, required): ID of the target work package
+- `description` (string, optional): Description of the relationship
+- `lag` (integer, optional): Lag in days (for "follows" relationships)
+
+**Example:**
+```
+Create a "blocks" relationship from work package 123 to work package 456
+```
+
+#### 7. `list_work_package_relations`
+List all relationships for a work package.
+
+**Parameters:**
+- `work_package_id` (integer, required): ID of the work package
+
+**Example:**
+```
+List all relationships for work package 123
+```
+
+#### 8. `delete_work_package_relation`
+Delete a work package relationship.
+
+**Parameters:**
+- `relation_id` (integer, required): ID of the relationship to delete
+
+**Example:**
+```
+Delete relationship 789
+```
+
+### Work Package Relationship Types
+
+OpenProject supports several types of relationships between work packages:
+
+- **`blocks`**: The source work package blocks the target work package from being completed
+- **`follows`**: The source work package follows (comes after) the target work package
+- **`relates`**: A general relationship between work packages
+- **`duplicates`**: The source work package duplicates the target work package
+- **`includes`**: The source work package includes the target work package
+- **`requires`**: The source work package requires the target work package
+
+**Note**: When you create a relationship, OpenProject automatically creates the reverse relationship on the target work package. For example, if you create a "blocks" relationship from A to B, work package B will automatically have a "blocked by" relationship to A.
 
 ## Development
 
