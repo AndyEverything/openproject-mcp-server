@@ -1,0 +1,61 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Run weekly on Mondays at 9 AM
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+
+    - name: Update dependencies
+      run: |
+        uv lock --upgrade
+
+    - name: Check for changes
+      id: changes
+      run: |
+        if git diff --quiet; then
+          echo "changed=false" >> $GITHUB_OUTPUT
+        else
+          echo "changed=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create Pull Request
+      if: steps.changes.outputs.changed == 'true'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "chore: update dependencies"
+        title: "chore: update dependencies"
+        body: |
+          This PR updates project dependencies to their latest versions.
+
+          ## Changes
+          - Updated dependencies in `uv.lock`
+
+          ## Testing
+          - [ ] All tests pass
+          - [ ] No breaking changes detected
+        branch: dependency-updates
+        delete-branch: true
+        labels: |
+          dependencies
+          automated

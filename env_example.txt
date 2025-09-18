@@ -5,7 +5,7 @@
 OPENPROJECT_URL=https://your-instance.openproject.com
 
 # Required: Your OpenProject API key
-# Get it from: User Profile -> Access tokens -> Create new token
+# Get it from: User Menu (top right) -> Account Settings -> Access tokens -> Create new token ("+ Api Token" button)
 OPENPROJECT_API_KEY=your-api-key-here
 
 # Optional: HTTP proxy URL (leave empty for direct connection)
@@ -16,4 +16,4 @@ OPENPROJECT_PROXY=
 LOG_LEVEL=INFO
 
 # Optional: Test connection on startup (true/false)
-TEST_CONNECTION_ON_STARTUP=false
+TEST_CONNECTION_ON_STARTUP=true
