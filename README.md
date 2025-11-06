@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/andyeverything-openproject-mcp-server-badge.png)](https://mseep.ai/app/andyeverything-openproject-mcp-server)
+
 <br>![status](https://img.shields.io/badge/status-WIP-yellow) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)<br><br>⚠️ This is an early-stage project. Do not use it productively – contributions welcome!<br>
 
 # OpenProject MCP Server
