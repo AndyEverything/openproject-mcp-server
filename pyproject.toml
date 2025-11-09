@@ -4,7 +4,13 @@ version = "0.0.1"
 description = "OpenProject MCP server (stdio only)"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["mcp>=1.2.0"]
+dependencies = [
+  "mcp>=1.2.0",
+  "pydantic>=2.7.0",
+  "pydantic-settings>=2.3.0",
+]
 
 [project.scripts]
-openproject-mcp = "openproject_mcp.main:run"
+openproj-mcp = "openproject_mcp.main:run"
+
+
