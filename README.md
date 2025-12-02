@@ -99,11 +99,20 @@ OPENPROJECT_API_KEY=your-api-key-here
 
 ## Usage
 
-### Running the Server
+### Deployment Options
+
+This MCP server can be deployed in two ways:
+
+1. **Local (stdio)**: Run on your local machine for personal use
+2. **Cloud (SSE)**: Deploy to FastMCP Cloud for team/organization access
+
+### Option 1: Local Deployment (stdio)
+
+#### Running the Server
 
 **Using uv (recommended):**
 ```bash
-uv run python openproject-mcp.py
+uv run python openproject-mcp-fastmcp.py
 ```
 
 **Alternative (manual activation):**
@@ -112,12 +121,12 @@ uv run python openproject-mcp.py
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Run the server
-python openproject-mcp.py
+python openproject-mcp-fastmcp.py
 ```
 
 **Note:** If you renamed the file from `openproject_mcp_server.py`, update your configuration accordingly.
 
-### Integration with Claude Desktop
+#### Integration with Claude Desktop (Local)
 
 Add this configuration to your Claude Desktop config file:
 
@@ -129,7 +138,7 @@ Add this configuration to your Claude Desktop config file:
   "mcpServers": {
     "openproject": {
       "command": "/path/to/your/project/.venv/bin/python",
-      "args": ["/path/to/your/project/openproject-mcp.py"]
+      "args": ["/path/to/your/project/openproject-mcp-fastmcp.py"]
     }
   }
 }
@@ -143,7 +152,7 @@ Add this configuration to your Claude Desktop config file:
   "mcpServers": {
     "openproject": {
       "command": "uv",
-      "args": ["run", "python", "/path/to/your/project/openproject-mcp.py"]
+      "args": ["run", "python", "/path/to/your/project/openproject-mcp-fastmcp.py"]
     }
   }
 }
@@ -154,6 +163,59 @@ The direct Python path approach is more reliable because:
 - It doesn't require `uv` to be in the system PATH
 - It avoids potential issues with `uv run` trying to install the project as a package
 - It's simpler and more straightforward for MCP server configurations
+
+### Option 2: Cloud Deployment (FastMCP Cloud) ☁️
+
+Deploy to FastMCP Cloud for centralized access across your organization. This eliminates the need for each user to install Python and run the server locally.
+
+**Benefits:**
+- No local installation required for end users
+- Centralized API key and configuration management
+- Access from anywhere with internet
+- Automatic scaling and monitoring
+- Team collaboration features
+
+**Quick Start:**
+
+1. **Update dependencies for SSE transport:**
+   ```bash
+   uv sync
+   ```
+
+2. **Deploy to FastMCP Cloud:**
+   ```bash
+   # Install FastMCP CLI
+   pip install fastmcp-cli
+
+   # Login
+   fastmcp login
+
+   # Deploy
+   fastmcp deploy
+   ```
+
+3. **Configure environment variables** on FastMCP Cloud dashboard:
+   - `OPENPROJECT_URL`
+   - `OPENPROJECT_API_KEY`
+   - `OPENPROJECT_PROXY` (if needed)
+
+4. **Users connect via Claude Desktop** with SSE transport:
+   ```json
+   {
+     "mcpServers": {
+       "openproject": {
+         "url": "https://your-org.fastmcp.cloud/openproject-mcp",
+         "transport": "sse"
+       }
+     }
+   }
+   ```
+
+**📚 Detailed Documentation:**
+- [FastMCP Cloud Deployment Guide (English)](FASTMCP_CLOUD_DEPLOYMENT.md)
+- [Hướng dẫn kết nối Cloud (Tiếng Việt)](HUONG_DAN_KET_NOI_CLOUD.md)
+
+For comprehensive deployment instructions, troubleshooting, and best practices, see the guides above.
 
 ### Available Tools
 
