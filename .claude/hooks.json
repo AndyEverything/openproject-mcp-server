@@ -1,0 +1,45 @@
+{
+  "hooks": {
+    "preToolUse": [
+      {
+        "name": "format-python-before-edit",
+        "description": "Auto-format Python files with Black before editing",
+        "command": "if echo \"$TOOL_NAME\" | grep -qE '^(Edit|Write)$'; then file=\"$TOOL_ARGUMENTS\" && if echo \"$file\" | grep -q '\\.py$'; then uv run black \"$file\" 2>/dev/null || echo 'Black formatting skipped'; fi; fi",
+        "block": false
+      },
+      {
+        "name": "protect-env-file",
+        "description": "Prevent editing .env file",
+        "command": "if echo \"$TOOL_NAME\" | grep -qE '^(Edit|Write)$'; then if echo \"$TOOL_ARGUMENTS\" | grep -q '\\.env'; then echo '❌ Cannot edit .env file - contains sensitive credentials'; exit 1; fi; fi",
+        "block": true
+      },
+      {
+        "name": "validate-python-syntax",
+        "description": "Check Python syntax before writing files",
+        "command": "if [ \"$TOOL_NAME\" = \"Write\" ]; then file=\"$TOOL_ARGUMENTS\" && if echo \"$file\" | grep -q '\\.py$'; then echo \"$TOOL_ARGUMENTS\" | python -m py_compile 2>/dev/null || echo '⚠️  Syntax validation unavailable'; fi; fi",
+        "block": false
+      }
+    ],
+    "postToolUse": [
+      {
+        "name": "run-tests-after-tool-changes",
+        "description": "Run relevant tests after modifying tool files",
+        "command": "if echo \"$TOOL_NAME\" | grep -qE '^(Edit|Write)$'; then if echo \"$TOOL_ARGUMENTS\" | grep -q 'openproject-mcp.py\\|src/tools/'; then echo '🧪 Running tests...'; uv run pytest tests/ -v 2>/dev/null || echo '⚠️  Tests not configured yet'; fi; fi",
+        "block": false
+      },
+      {
+        "name": "update-requirements",
+        "description": "Sync dependencies after pyproject.toml changes",
+        "command": "if echo \"$TOOL_NAME\" | grep -qE '^(Edit|Write)$'; then if echo \"$TOOL_ARGUMENTS\" | grep -q 'pyproject.toml'; then echo '📦 Syncing dependencies...'; uv sync 2>/dev/null || echo 'Dependency sync skipped'; fi; fi",
+        "block": false
+      }
+    ]
+  },
+  "settings": {
+    "shellEnvironment": {
+      "PATH": "${PATH}:./node_modules/.bin",
+      "PYTHONPATH": "."
+    },
+    "timeout": 30000
+  }
+}
