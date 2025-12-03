@@ -493,3 +493,132 @@ async def unassign_work_package(work_package_id: int) -> str:
 
     except Exception as e:
         return format_error(f"Failed to unassign work package: {str(e)}")
+
+
+@mcp.tool
+async def add_work_package_comment(
+    work_package_id: int,
+    comment: str,
+    internal: bool = False
+) -> str:
+    """Add a comment/activity to a work package - CRITICAL for reporting and communication.
+
+    This allows users to add progress updates, notes, or communicate within a task.
+    Comments support markdown formatting and can be marked as internal (team-only).
+
+    Args:
+        work_package_id: ID of the work package to comment on
+        comment: Comment text (supports markdown formatting)
+        internal: If True, comment is only visible to team members (default: False)
+
+    Returns:
+        Success message with the created comment details
+
+    Example:
+        To add a progress update:
+        {
+            "work_package_id": 123,
+            "comment": "## Progress Update\\n\\n- Completed database migration\\n- Started API integration",
+            "internal": false
+        }
+    """
+    try:
+        client = get_client()
+
+        result = await client.add_work_package_comment(
+            work_package_id=work_package_id,
+            comment=comment,
+            internal=internal
+        )
+
+        activity_id = result.get("id", "N/A")
+        comment_data = result.get("comment", {})
+        comment_html = comment_data.get("html", "")
+        comment_raw = comment_data.get("raw", comment)
+
+        text = format_success(f"Comment added to work package #{work_package_id} successfully!\n\n")
+        text += f"**Activity ID**: {activity_id}\n"
+        text += f"**Internal**: {'Yes' if internal else 'No'}\n"
+        text += f"**Comment**: {comment_raw[:200]}{'...' if len(comment_raw) > 200 else ''}\n"
+
+        # Show author info if available
+        links = result.get("_links", {})
+        user_link = links.get("user", {})
+        if user_link:
+            text += f"**Posted by**: {user_link.get('title', 'Unknown')}\n"
+
+        if result.get("createdAt"):
+            text += f"**Created**: {result['createdAt']}\n"
+
+        return text
+
+    except Exception as e:
+        return format_error(f"Failed to add comment: {str(e)}")
+
+
+@mcp.tool
+async def list_work_package_activities(work_package_id: int) -> str:
+    """List all activities (comments, changes) for a work package.
+
+    This shows the activity history including comments, status changes, and field updates.
+    Useful for reviewing task history and communication.
+
+    Args:
+        work_package_id: ID of the work package
+
+    Returns:
+        Formatted list of activities with details
+    """
+    try:
+        client = get_client()
+
+        result = await client.get_work_package_activities(work_package_id)
+        activities = result.get("_embedded", {}).get("elements", [])
+
+        if not activities:
+            return f"No activities found for work package #{work_package_id}."
+
+        text = format_success(f"Work Package #{work_package_id} Activities ({len(activities)}):\n\n")
+
+        for activity in activities:
+            activity_id = activity.get("id", "N/A")
+            activity_type = activity.get("_type", "Activity")
+            created_at = activity.get("createdAt", "Unknown")
+
+            # Get user from _links
+            links = activity.get("_links", {})
+            user_link = links.get("user", {})
+            user_name = user_link.get("title", "Unknown")
+
+            text += f"**Activity #{activity_id}** - {activity_type}\n"
+            text += f"  By: {user_name}\n"
+            text += f"  Date: {created_at}\n"
+
+            # Show comment if available
+            comment_data = activity.get("comment", {})
+            if comment_data:
+                comment_raw = comment_data.get("raw", "")
+                if comment_raw:
+                    # Truncate long comments
+                    comment_preview = comment_raw[:150]
+                    if len(comment_raw) > 150:
+                        comment_preview += "..."
+                    text += f"  Comment: {comment_preview}\n"
+
+            # Show if internal
+            if activity.get("internal"):
+                text += f"  🔒 Internal comment\n"
+
+            # Show details of changes (if available)
+            details = activity.get("details", [])
+            if details:
+                text += f"  Changes:\n"
+                for detail in details[:3]:  # Show max 3 changes
+                    text += f"    - {detail}\n"
+
+            text += "\n"
+
+        return text
+
+    except Exception as e:
+        return format_error(f"Failed to list activities: {str(e)}")

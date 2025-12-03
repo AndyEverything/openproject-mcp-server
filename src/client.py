@@ -509,6 +509,56 @@ class OpenProjectClient:
         await self._request("DELETE", f"/work_packages/{work_package_id}")
         return True
 
+    async def add_work_package_comment(
+        self, work_package_id: int, comment: str, internal: bool = False
+    ) -> Dict:
+        """
+        Add a comment/activity to a work package.
+
+        Args:
+            work_package_id: The work package ID
+            comment: Comment text (supports markdown)
+            internal: Whether the comment is internal (visible only to team members)
+
+        Returns:
+            Dict: API response containing the created activity
+        """
+        payload = {
+            "comment": {
+                "format": "markdown",
+                "raw": comment
+            }
+        }
+
+        if internal:
+            payload["internal"] = internal
+
+        return await self._request(
+            "POST", f"/work_packages/{work_package_id}/activities", payload
+        )
+
+    async def get_work_package_activities(self, work_package_id: int) -> Dict:
+        """
+        Retrieve activities (comments, changes) for a work package.
+
+        Args:
+            work_package_id: The work package ID
+
+        Returns:
+            Dict: API response containing activities
+        """
+        result = await self._request(
+            "GET", f"/work_packages/{work_package_id}/activities"
+        )
+
+        # Ensure proper response structure
+        if "_embedded" not in result:
+            result["_embedded"] = {"elements": []}
+        elif "elements" not in result.get("_embedded", {}):
+            result["_embedded"]["elements"] = []
+
+        return result
+
     async def get_time_entries(self, filters: Optional[str] = None) -> Dict:
         """
         Retrieve time entries.
