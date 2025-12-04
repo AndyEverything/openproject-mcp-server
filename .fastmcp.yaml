@@ -1,0 +1,76 @@
+name: openproject-mcp
+version: 1.0.0
+description: OpenProject MCP Server for internal use - 40 tools for project management
+runtime: python3.10
+
+# Entry point for SSE transport
+entry_point: openproject-mcp-sse.py
+
+# Environment variables (configure on FastMCP Cloud dashboard)
+env:
+  - OPENPROJECT_URL
+  - OPENPROJECT_API_KEY
+  - OPENPROJECT_PROXY  # Optional
+  - LOG_LEVEL  # Optional, default: INFO
+  - TEST_CONNECTION_ON_STARTUP  # Optional, default: false
+
+# Resources allocation
+resources:
+  memory: 512MB  # Increase if handling many concurrent requests
+  cpu: 0.5
+
+# Health check endpoint
+health_check:
+  path: /health
+  interval: 30s
+  timeout: 5s
+  unhealthy_threshold: 3
+
+# Auto-scaling (if supported by plan)
+scaling:
+  min_instances: 1
+  max_instances: 3
+  target_cpu: 70
+
+# Files to include in deployment
+include:
+  - src/**/*.py
+  - openproject-mcp-sse.py
+  - pyproject.toml
+  - README.md
+  - HUONG_DAN_SU_DUNG.md
+  - .env.example
+
+# Files to exclude from deployment
+exclude:
+  - .venv/**
+  - __pycache__/**
+  - tests/**
+  - docs/**
+  - *.log
+  - .env  # Never commit actual .env file
+  - .git/**
+  - .gitignore
+  - data/**
+  - logs/**
+  - certs/**
+  - openproject-mcp.legacy.py
+  - openproject-mcp-http.py
+  - openproject-mcp-fastmcp.py  # stdio version, not needed for cloud
+  - test_*.py
+  - *.md  # Exclude other MD files except README and HUONG_DAN
+
+# Dependencies (auto-detected from pyproject.toml)
+# No need to specify if using pyproject.toml
+
+# Timeout settings
+timeout:
+  read: 30s
+  write: 30s
+  idle: 120s
+
+# Logging
+logging:
+  level: INFO
+  format: json
+  retention: 7d

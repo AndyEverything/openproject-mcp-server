@@ -1,0 +1,42 @@
+{
+  "model": "sonnet",
+  "models": {
+    "aliases": {
+      "fast": "haiku",
+      "smart": "opus",
+      "default": "sonnet",
+      "opusplan": {
+        "plan": "opus",
+        "execute": "sonnet"
+      }
+    }
+  },
+  "project": {
+    "name": "OpenProject MCP Server",
+    "type": "python-mcp",
+    "primaryFiles": [
+      "openproject-mcp.py",
+      "src/tools/*.py",
+      "src/analytics/*.py"
+    ]
+  },
+  "workflow": {
+    "testCommand": "uv run pytest tests/ -v",
+    "formatCommand": "uv run black .",
+    "lintCommand": "uv run flake8 .",
+    "runCommand": "uv run python openproject-mcp.py"
+  },
+  "context": {
+    "alwaysInclude": [
+      "CLAUDE.md",
+      ".env.example"
+    ],
+    "exclude": [
+      ".env",
+      "*.pyc",
+      "__pycache__/",
+      ".venv/",
+      "*.log"
+    ]
+  }
+}

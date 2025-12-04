@@ -99,11 +99,20 @@ OPENPROJECT_API_KEY=your-api-key-here
 
 ## Usage
 
-### Running the Server
+### Deployment Options
+
+This MCP server can be deployed in two ways:
+
+1. **Local (stdio)**: Run on your local machine for personal use
+2. **Cloud (SSE)**: Deploy to FastMCP Cloud for team/organization access
+
+### Option 1: Local Deployment (stdio)
+
+#### Running the Server
 
 **Using uv (recommended):**
 ```bash
-uv run python openproject-mcp.py
+uv run python openproject-mcp-fastmcp.py
 ```
 
 **Alternative (manual activation):**
@@ -112,48 +121,198 @@ uv run python openproject-mcp.py
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Run the server
-python openproject-mcp.py
+python openproject-mcp-fastmcp.py
 ```
 
-**Note:** If you renamed the file from `openproject_mcp_server.py`, update your configuration accordingly.
+**File Structure:**
+- `openproject-mcp-fastmcp.py` - Stdio transport (for local Claude Desktop)
+- `openproject-mcp-sse.py` - SSE transport (for FastMCP Cloud)
+- `src/` - Core implementation using FastMCP framework
+  - `src/server.py` - FastMCP server initialization
+  - `src/client.py` - OpenProject API client
+  - `src/tools/` - All 40+ MCP tools organized by category
 
-### Integration with Claude Desktop
+#### Integration with Claude Desktop
+
+**Quick Install Using CLI (Recommended):**
+
+This command works for both **Claude Desktop** and **Claude Code (VSCode extension)**.
+
+```powershell
+# Windows - Replace <YOUR_PROJECT_PATH> with your actual path
+claude mcp add openproject-fastmcp "<YOUR_PROJECT_PATH>\.venv\Scripts\python.exe" "<YOUR_PROJECT_PATH>\openproject-mcp-fastmcp.py" -e "PYTHONPATH=<YOUR_PROJECT_PATH>" -e "OPENPROJECT_URL=https://your-instance.com" -e "OPENPROJECT_API_KEY=your-api-key"
+```
+
+```bash
+# macOS/Linux - Replace <YOUR_PROJECT_PATH> with your actual path
+claude mcp add openproject-fastmcp "<YOUR_PROJECT_PATH>/.venv/bin/python" "<YOUR_PROJECT_PATH>/openproject-mcp-fastmcp.py" -e "PYTHONPATH=<YOUR_PROJECT_PATH>" -e "OPENPROJECT_URL=https://your-instance.com" -e "OPENPROJECT_API_KEY=your-api-key"
+```
+
+**Example (Windows):**
+```powershell
+# If you cloned the project to C:\Users\YourName\openproject-mcp-server
+claude mcp add openproject-fastmcp "C:\Users\YourName\openproject-mcp-server\.venv\Scripts\python.exe" "C:\Users\YourName\openproject-mcp-server\openproject-mcp-fastmcp.py" -e "PYTHONPATH=C:\Users\YourName\openproject-mcp-server" -e "OPENPROJECT_URL=https://manage.example.com" -e "OPENPROJECT_API_KEY=abc123xyz456"
+```
+
+**Example (macOS/Linux):**
+```bash
+# If you cloned the project to /home/yourname/openproject-mcp-server
+claude mcp add openproject-fastmcp "/home/yourname/openproject-mcp-server/.venv/bin/python" "/home/yourname/openproject-mcp-server/openproject-mcp-fastmcp.py" -e "PYTHONPATH=/home/yourname/openproject-mcp-server" -e "OPENPROJECT_URL=https://manage.example.com" -e "OPENPROJECT_API_KEY=abc123xyz456"
+```
+
+**Important:** Replace the following values:
+- `<YOUR_PROJECT_PATH>` with your actual installation directory
+- `https://your-instance.com` with your OpenProject URL
+- `your-api-key` with your API key from Account Settings
+
+**Verify Installation:**
+```powershell
+claude mcp list
+```
+
+You should see:
+```
+openproject-fastmcp: ... - ✓ Connected
+```
+
+After running the command, restart Claude Desktop or reload VSCode window.
+
+---
+
+**Manual Configuration:**
 
 Add this configuration to your Claude Desktop config file:
 
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Config file locations:**
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
+**Windows Configuration:**
 ```json
 {
   "mcpServers": {
-    "openproject": {
-      "command": "/path/to/your/project/.venv/bin/python",
-      "args": ["/path/to/your/project/openproject-mcp.py"]
+    "openproject-fastmcp": {
+      "command": "D:\\Promete\\Project\\mcp-openproject\\openproject-mcp-server\\.venv\\Scripts\\python.exe",
+      "args": ["D:\\Promete\\Project\\mcp-openproject\\openproject-mcp-server\\openproject-mcp-fastmcp.py"],
+      "env": {
+        "PYTHONPATH": "D:\\Promete\\Project\\mcp-openproject\\openproject-mcp-server",
+        "OPENPROJECT_URL": "https://your-instance.com",
+        "OPENPROJECT_API_KEY": "your-api-key"
+      }
     }
   }
 }
 ```
 
-**Note:** Replace `/path/to/your/project/` with the actual path to your project directory.
-
-**Alternative with uv (if uv is in your system PATH):**
+**macOS/Linux Configuration:**
 ```json
 {
   "mcpServers": {
-    "openproject": {
-      "command": "uv",
-      "args": ["run", "python", "/path/to/your/project/openproject-mcp.py"]
+    "openproject-fastmcp": {
+      "command": "/path/to/project/.venv/bin/python",
+      "args": ["/path/to/project/openproject-mcp-fastmcp.py"],
+      "env": {
+        "PYTHONPATH": "/path/to/project",
+        "OPENPROJECT_URL": "https://your-instance.com",
+        "OPENPROJECT_API_KEY": "your-api-key"
+      }
     }
   }
 }
 ```
 
-**Why use the direct Python path?**
-The direct Python path approach is more reliable because:
-- It doesn't require `uv` to be in the system PATH
-- It avoids potential issues with `uv run` trying to install the project as a package
-- It's simpler and more straightforward for MCP server configurations
+**Note:** Using environment variables in config is more secure than storing credentials in `.env` file.
+
+**Verification:**
+
+Check if the server is connected:
+```powershell
+claude mcp list
+```
+
+You should see:
+```
+openproject-fastmcp: ... - ✓ Connected
+```
+
+If you see `✗ Failed to connect`, check:
+1. Python path is correct
+2. `openproject-mcp-fastmcp.py` file exists
+3. Environment variables are set correctly
+4. Restart Claude Desktop after configuration changes
+
+### Option 2: Cloud Deployment (FastMCP Cloud) ☁️
+
+Deploy to FastMCP Cloud for centralized access across your organization. This eliminates the need for each user to install Python and run the server locally.
+
+**Benefits:**
+- No local installation required for end users
+- Centralized API key and configuration management
+- Access from anywhere with internet
+- Automatic scaling and monitoring
+- Team collaboration features
+
+**Quick Start:**
+
+1. **Ensure you have the SSE entry point:**
+   ```bash
+   # The project includes openproject-mcp-sse.py for cloud deployment
+   ls openproject-mcp-sse.py
+   ```
+
+2. **Create/update .fastmcp.yaml config:**
+   ```yaml
+   name: openproject-mcp
+   version: "1.0.0"
+   description: "OpenProject MCP Server for Claude Desktop"
+
+   entry_point: openproject-mcp-sse.py
+
+   runtime:
+     python_version: "3.11"
+
+   environment:
+     - OPENPROJECT_URL
+     - OPENPROJECT_API_KEY
+     - OPENPROJECT_PROXY
+   ```
+
+3. **Deploy to FastMCP Cloud:**
+   ```bash
+   # Install FastMCP CLI (if not installed)
+   pip install fastmcp
+
+   # Login to FastMCP Cloud
+   fastmcp login
+
+   # Deploy your server
+   fastmcp deploy
+   ```
+
+4. **Configure environment variables** on FastMCP Cloud dashboard:
+   - `OPENPROJECT_URL`: Your OpenProject instance URL
+   - `OPENPROJECT_API_KEY`: Your API key
+   - `OPENPROJECT_PROXY`: (Optional) Proxy URL if needed
+
+5. **Users connect via Claude Desktop** with SSE transport:
+   ```json
+   {
+     "mcpServers": {
+       "openproject": {
+         "url": "https://mcp.fastmcp.com/sse/openproject-mcp",
+         "transport": "sse"
+       }
+     }
+   }
+   ```
+
+**📚 Detailed Documentation:**
+- [Quick Start Guide](QUICK_START_CLOUD.md) - Fast setup in 5 minutes
+- [FastMCP Cloud Deployment Guide (English)](FASTMCP_CLOUD_DEPLOYMENT.md) - Comprehensive guide
+- [Hướng dẫn kết nối Cloud (Tiếng Việt)](HUONG_DAN_KET_NOI_CLOUD.md) - Vietnamese guide
+
+For comprehensive deployment instructions, troubleshooting, and best practices, see the guides above.
 
 ### Available Tools
 
