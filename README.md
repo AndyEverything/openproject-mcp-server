@@ -347,7 +347,27 @@ List work packages with optional filtering.
 Show all open work packages in project 5
 ```
 
-#### 4. `list_types`
+#### 4. `search_work_packages`
+Search work packages by subject or ID using server-side filtering.
+
+**Parameters:**
+- `query` (string, required): Search text to match against work package subject or ID
+- `project_id` (integer, optional): Limit search to a specific project
+- `active_only` (boolean, optional): Search only open work packages (default: true)
+- `offset` (integer, optional): Starting index for pagination (default: 0)
+- `page_size` (integer, optional): Number of results per page (default: 20, max: 100)
+
+**Example:**
+```
+Search for tasks containing "login"
+```
+```
+Search for work package by ID: "123"
+```
+
+**Note:** This tool provides fast search without needing to paginate through all tasks. Use this when you need to find specific tasks by name or ID.
+
+#### 5. `list_types`
 List available work package types.
 
 **Parameters:**
@@ -358,7 +378,7 @@ List available work package types.
 List all work package types
 ```
 
-#### 5. `create_work_package`
+#### 6. `create_work_package`
 Create a new work package.
 
 **Parameters:**
@@ -374,38 +394,38 @@ Create a new work package.
 Create a new task in project 5 titled "Update documentation" with type ID 1
 ```
 
-#### 6. `list_users`
+#### 7. `list_users`
 List all users in the OpenProject instance.
 
 **Parameters:**
 - `active_only` (boolean, optional): Show only active users (default: true)
 
-#### 7. `get_user`
+#### 8. `get_user`
 Get detailed information about a specific user.
 
 **Parameters:**
 - `user_id` (integer, required): User ID
 
-#### 8. `list_memberships`
+#### 9. `list_memberships`
 List project memberships showing users and their roles.
 
 **Parameters:**
 - `project_id` (integer, optional): Filter by specific project
 - `user_id` (integer, optional): Filter by specific user
 
-#### 9. `list_statuses`
+#### 10. `list_statuses`
 List all available work package statuses.
 
-#### 10. `list_priorities`
+#### 11. `list_priorities`
 List all available work package priorities.
 
-#### 11. `get_work_package`
+#### 12. `get_work_package`
 Get detailed information about a specific work package.
 
 **Parameters:**
 - `work_package_id` (integer, required): Work package ID
 
-#### 12. `update_work_package`
+#### 13. `update_work_package`
 Update an existing work package.
 
 **Parameters:**
@@ -701,7 +721,7 @@ uv sync
 
 ## Tool Compatibility & Test Results
 
-### ✅ Fully Working Tools (39/41)
+### ✅ Fully Working Tools (40/42)
 All these tools have been tested and work correctly with admin privileges:
 
 **Core Project Management:**
@@ -709,7 +729,7 @@ All these tools have been tested and work correctly with admin privileges:
 - `delete_project`, `get_project`
 
 **Work Package Management:**
-- `list_work_packages`, `list_types`, `create_work_package`, `update_work_package`
+- `list_work_packages`, `search_work_packages`, `list_types`, `create_work_package`, `update_work_package`
 - `delete_work_package`, `get_work_package`, `list_statuses`, `list_priorities`
 
 **Work Package Hierarchy & Relations:**

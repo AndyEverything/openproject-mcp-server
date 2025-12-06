@@ -112,6 +112,103 @@ async def list_work_packages(
 
 
 @mcp.tool
+async def search_work_packages(
+    query: str,
+    project_id: Optional[int] = None,
+    active_only: bool = True,
+    offset: int = 0,
+    page_size: int = 20
+) -> str:
+    """Search work packages by subject or ID - Fast search without pagination.
+
+    This tool provides quick search functionality using OpenProject's server-side filtering.
+    Use this when you need to find specific tasks by name or ID instead of listing all tasks.
+
+    Args:
+        query: Search text to match against work package subject or ID
+        project_id: Optional project ID to limit search to a specific project
+        active_only: If True, only search open work packages (default: True)
+        offset: Starting index for pagination (default: 0)
+        page_size: Number of results per page (default: 20, max: 100)
+
+    Returns:
+        Formatted list of matching work packages
+
+    Example:
+        To search for tasks containing "login":
+        {
+            "query": "login"
+        }
+
+        To search by work package ID:
+        {
+            "query": "123"
+        }
+    """
+    try:
+        client = get_client()
+
+        # Validate input
+        if not query or not query.strip():
+            return format_error("Search query cannot be empty")
+
+        # Build filters
+        filters_list = []
+
+        # Add subjectOrId filter for search
+        filters_list.append({
+            "subjectOrId": {
+                "operator": "**",
+                "values": [query.strip()]
+            }
+        })
+
+        # Add active_only filter if requested
+        if active_only:
+            filters_list.append({"status": {"operator": "o", "values": []}})
+
+        filters = json.dumps(filters_list)
+
+        # Validate pagination parameters
+        if offset < 0:
+            return format_error("offset must be >= 0")
+        if page_size < 1 or page_size > 100:
+            return format_error("page_size must be between 1 and 100")
+
+        result = await client.get_work_packages(
+            project_id=project_id,
+            filters=filters,
+            offset=offset,
+            page_size=page_size
+        )
+
+        work_packages = result.get("_embedded", {}).get("elements", [])
+        total = result.get("total", len(work_packages))
+
+        # Format response with search context
+        if not work_packages:
+            text = f"🔍 No work packages found matching '{query}'"
+            if project_id:
+                text += f" in project #{project_id}"
+            if active_only:
+                text += " (active only)"
+            return text
+
+        text = f"🔍 **Search Results for '{query}'**: Found {total} work package(s)\n\n"
+        text += format_work_package_list(work_packages)
+
+        # Add pagination info
+        if total > page_size:
+            text += f"\n📄 **Pagination**: Showing {offset + 1}-{offset + len(work_packages)} of {total} total\n"
+            text += f"   Use `offset={offset + page_size}` to see next page\n"
+
+        return text
+
+    except Exception as e:
+        return format_error(f"Failed to search work packages: {str(e)}")
+
+
+@mcp.tool
 async def create_work_package(input: CreateWorkPackageInput) -> str:
     """Create a new work package (task) - CRITICAL tool for creating tasks.
 
