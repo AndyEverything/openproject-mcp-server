@@ -861,6 +861,43 @@ class OpenProjectClient:
         """
         return await self._request("GET", f"/projects/{project_id}")
 
+    async def get_subprojects(self, parent_id: int) -> Dict:
+        """
+        Retrieve direct subprojects of a parent project.
+
+        Args:
+            parent_id: The parent project ID
+
+        Returns:
+            Dict: API response containing direct child projects
+        """
+        # Use parent_id filter for direct children only
+        filters = json.dumps([{
+            "parent_id": {"operator": "=", "values": [str(parent_id)]}
+        }])
+        return await self.get_projects(filters)
+
+    async def validate_parent_project(self, parent_id: int, child_id: Optional[int] = None) -> bool:
+        """
+        Validate if a project can be a parent.
+        Uses the available_parent_projects endpoint.
+
+        Args:
+            parent_id: The parent project ID to validate
+            child_id: Optional child project ID (for existing projects)
+
+        Returns:
+            bool: True if valid parent
+        """
+        endpoint = "/projects/available_parent_projects"
+        if child_id:
+            endpoint += f"?of={child_id}"
+
+        result = await self._request("GET", endpoint)
+        candidates = result.get("_embedded", {}).get("elements", [])
+
+        return any(p.get("id") == parent_id for p in candidates)
+
     async def get_roles(self) -> Dict:
         """
         Retrieve available roles.
