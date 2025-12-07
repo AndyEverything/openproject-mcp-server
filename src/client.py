@@ -1081,7 +1081,11 @@ class OpenProjectClient:
         )
 
     async def list_work_package_children(
-        self, parent_id: int, include_descendants: bool = False
+        self,
+        parent_id: int,
+        include_descendants: bool = False,
+        offset: Optional[int] = None,
+        page_size: Optional[int] = None,
     ) -> Dict:
         """
         List all child work packages of a parent.
@@ -1089,6 +1093,8 @@ class OpenProjectClient:
         Args:
             parent_id: The parent work package ID
             include_descendants: If True, includes grandchildren and below
+            offset: Optional starting index for pagination
+            page_size: Optional number of results per page
 
         Returns:
             Dict: API response containing child work packages
@@ -1104,7 +1110,14 @@ class OpenProjectClient:
                 [{"parent": {"operator": "=", "values": [str(parent_id)]}}]
             )
 
-        endpoint = f"/work_packages?filters={quote(filters)}"
+        # Build query parameters
+        query_params = [f"filters={quote(filters)}"]
+        if offset is not None:
+            query_params.append(f"offset={offset}")
+        if page_size is not None:
+            query_params.append(f"pageSize={page_size}")
+
+        endpoint = f"/work_packages?" + "&".join(query_params)
         result = await self._request("GET", endpoint)
 
         # Ensure proper response structure
@@ -1114,6 +1127,19 @@ class OpenProjectClient:
             result["_embedded"]["elements"] = []
 
         return result
+
+    # Alias for backward compatibility and consistency with tool naming
+    async def get_work_package_children(
+        self,
+        parent_id: int,
+        include_descendants: bool = False,
+        offset: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ) -> Dict:
+        """Alias for list_work_package_children."""
+        return await self.list_work_package_children(
+            parent_id, include_descendants, offset, page_size
+        )
 
     async def create_work_package_relation(self, data: Dict) -> Dict:
         """

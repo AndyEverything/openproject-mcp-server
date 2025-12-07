@@ -79,7 +79,7 @@ async def list_work_package_children(
         client = get_client()
 
         result = await client.get_work_package_children(
-            work_package_id,
+            parent_id=work_package_id,
             offset=offset,
             page_size=page_size
         )
