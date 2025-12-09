@@ -30,15 +30,28 @@ def calculate_metrics(work_packages: List[Dict], time_entries: List[Dict]) -> Di
     
     # Count work packages by status and type
     for wp in work_packages:
-        # Status analysis
-        status_name = wp.get('_embedded', {}).get('status', {}).get('name', '').lower()
-        if 'closed' in status_name or 'done' in status_name or 'resolved' in status_name:
+        # Status analysis - try _embedded first, fallback to _links.status.title
+        status_obj = wp.get('_embedded', {}).get('status', {})
+        status_name = status_obj.get('name', '').lower()
+        
+        # Fallback: if no status in _embedded, try _links
+        if not status_name or status_name == 'unknown':
+            status_link = wp.get('_links', {}).get('status', {})
+            status_name = status_link.get('title', '').lower()
+        
+        # Handle empty status by treating as planned
+        if not status_name or status_name == 'unknown':
+            metrics['planned_count'] += 1
+        elif 'closed' in status_name or 'done' in status_name or 'resolved' in status_name or 'completed' in status_name or 'finished' in status_name:
             metrics['done_count'] += 1
-        elif 'progress' in status_name or 'development' in status_name:
+        elif 'progress' in status_name or 'development' in status_name or 'implementing' in status_name:
             metrics['in_progress_count'] += 1
         elif 'blocked' in status_name:
             metrics['blocked_count'] += 1
-        elif 'new' in status_name or 'open' in status_name:
+        elif 'new' in status_name or 'open' in status_name or 'specified' in status_name or 'to do' in status_name:
+            metrics['planned_count'] += 1
+        else:
+            # Default unknown statuses to planned
             metrics['planned_count'] += 1
             
         # Type analysis
@@ -83,20 +96,35 @@ def group_by_status(work_packages: List[Dict]) -> Dict[str, List[Dict]]:
     }
     
     for wp in work_packages:
-        status_name = wp.get('_embedded', {}).get('status', {}).get('name', '').lower()
+        # Try _embedded first, fallback to _links.status.title
+        status_obj = wp.get('_embedded', {}).get('status', {})
+        status_name = status_obj.get('name', '').lower()
         
-        if 'closed' in status_name or 'done' in status_name or 'resolved' in status_name:
+        # Fallback: if no status in _embedded, try _links
+        if not status_name or status_name == 'unknown':
+            status_link = wp.get('_links', {}).get('status', {})
+            status_name = status_link.get('title', '').lower()
+        
+        # If status still empty or Unknown, default to 'planned'
+        if not status_name or status_name == 'unknown':
+            # For work packages without clear status, default to 'planned'
+            # This is safer than categorizing as 'other' which won't show in main sections
+            groups['planned'].append(wp)
+            continue
+        
+        if 'closed' in status_name or 'done' in status_name or 'resolved' in status_name or 'completed' in status_name or 'finished' in status_name:
             groups['done'].append(wp)
-        elif 'progress' in status_name or 'development' in status_name:
+        elif 'progress' in status_name or 'development' in status_name or 'implementing' in status_name:
             groups['in_progress'].append(wp)
         elif 'blocked' in status_name:
             groups['blocked'].append(wp)
         elif 'rejected' in status_name or 'cancelled' in status_name:
             groups['de_scoped'].append(wp)
-        elif 'new' in status_name or 'open' in status_name or 'specified' in status_name:
+        elif 'new' in status_name or 'open' in status_name or 'specified' in status_name or 'to do' in status_name:
             groups['planned'].append(wp)
         else:
-            groups['other'].append(wp)
+            # Unknown status types default to 'planned' to ensure visibility
+            groups['planned'].append(wp)
     
     return groups
 
