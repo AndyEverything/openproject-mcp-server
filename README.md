@@ -99,11 +99,20 @@ OPENPROJECT_API_KEY=your-api-key-here
 
 ## Usage
 
-### Running the Server
+### Deployment Options
+
+This MCP server can be deployed in two ways:
+
+1. **Local (stdio)**: Run on your local machine for personal use
+2. **Cloud (SSE)**: Deploy to FastMCP Cloud for team/organization access
+
+### Option 1: Local Deployment (stdio)
+
+#### Running the Server
 
 **Using uv (recommended):**
 ```bash
-uv run python openproject-mcp.py
+uv run python openproject-mcp-fastmcp.py
 ```
 
 **Alternative (manual activation):**
@@ -112,48 +121,198 @@ uv run python openproject-mcp.py
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Run the server
-python openproject-mcp.py
+python openproject-mcp-fastmcp.py
 ```
 
-**Note:** If you renamed the file from `openproject_mcp_server.py`, update your configuration accordingly.
+**File Structure:**
+- `openproject-mcp-fastmcp.py` - Stdio transport (for local Claude Desktop)
+- `openproject-mcp-sse.py` - SSE transport (for FastMCP Cloud)
+- `src/` - Core implementation using FastMCP framework
+  - `src/server.py` - FastMCP server initialization
+  - `src/client.py` - OpenProject API client
+  - `src/tools/` - All 40+ MCP tools organized by category
 
-### Integration with Claude Desktop
+#### Integration with Claude Desktop
+
+**Quick Install Using CLI (Recommended):**
+
+This command works for both **Claude Desktop** and **Claude Code (VSCode extension)**.
+
+```powershell
+# Windows - Replace <YOUR_PROJECT_PATH> with your actual path
+claude mcp add openproject-fastmcp "<YOUR_PROJECT_PATH>\.venv\Scripts\python.exe" "<YOUR_PROJECT_PATH>\openproject-mcp-fastmcp.py" -e "PYTHONPATH=<YOUR_PROJECT_PATH>" -e "OPENPROJECT_URL=https://your-instance.com" -e "OPENPROJECT_API_KEY=your-api-key"
+```
+
+```bash
+# macOS/Linux - Replace <YOUR_PROJECT_PATH> with your actual path
+claude mcp add openproject-fastmcp "<YOUR_PROJECT_PATH>/.venv/bin/python" "<YOUR_PROJECT_PATH>/openproject-mcp-fastmcp.py" -e "PYTHONPATH=<YOUR_PROJECT_PATH>" -e "OPENPROJECT_URL=https://your-instance.com" -e "OPENPROJECT_API_KEY=your-api-key"
+```
+
+**Example (Windows):**
+```powershell
+# If you cloned the project to C:\Users\YourName\openproject-mcp-server
+claude mcp add openproject-fastmcp "C:\Users\YourName\openproject-mcp-server\.venv\Scripts\python.exe" "C:\Users\YourName\openproject-mcp-server\openproject-mcp-fastmcp.py" -e "PYTHONPATH=C:\Users\YourName\openproject-mcp-server" -e "OPENPROJECT_URL=https://manage.example.com" -e "OPENPROJECT_API_KEY=abc123xyz456"
+```
+
+**Example (macOS/Linux):**
+```bash
+# If you cloned the project to /home/yourname/openproject-mcp-server
+claude mcp add openproject-fastmcp "/home/yourname/openproject-mcp-server/.venv/bin/python" "/home/yourname/openproject-mcp-server/openproject-mcp-fastmcp.py" -e "PYTHONPATH=/home/yourname/openproject-mcp-server" -e "OPENPROJECT_URL=https://manage.example.com" -e "OPENPROJECT_API_KEY=abc123xyz456"
+```
+
+**Important:** Replace the following values:
+- `<YOUR_PROJECT_PATH>` with your actual installation directory
+- `https://your-instance.com` with your OpenProject URL
+- `your-api-key` with your API key from Account Settings
+
+**Verify Installation:**
+```powershell
+claude mcp list
+```
+
+You should see:
+```
+openproject-fastmcp: ... - ✓ Connected
+```
+
+After running the command, restart Claude Desktop or reload VSCode window.
+
+---
+
+**Manual Configuration:**
 
 Add this configuration to your Claude Desktop config file:
 
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Config file locations:**
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
+**Windows Configuration:**
 ```json
 {
   "mcpServers": {
-    "openproject": {
-      "command": "/path/to/your/project/.venv/bin/python",
-      "args": ["/path/to/your/project/openproject-mcp.py"]
+    "openproject-fastmcp": {
+      "command": "D:\\Promete\\Project\\mcp-openproject\\openproject-mcp-server\\.venv\\Scripts\\python.exe",
+      "args": ["D:\\Promete\\Project\\mcp-openproject\\openproject-mcp-server\\openproject-mcp-fastmcp.py"],
+      "env": {
+        "PYTHONPATH": "D:\\Promete\\Project\\mcp-openproject\\openproject-mcp-server",
+        "OPENPROJECT_URL": "https://your-instance.com",
+        "OPENPROJECT_API_KEY": "your-api-key"
+      }
     }
   }
 }
 ```
 
-**Note:** Replace `/path/to/your/project/` with the actual path to your project directory.
-
-**Alternative with uv (if uv is in your system PATH):**
+**macOS/Linux Configuration:**
 ```json
 {
   "mcpServers": {
-    "openproject": {
-      "command": "uv",
-      "args": ["run", "python", "/path/to/your/project/openproject-mcp.py"]
+    "openproject-fastmcp": {
+      "command": "/path/to/project/.venv/bin/python",
+      "args": ["/path/to/project/openproject-mcp-fastmcp.py"],
+      "env": {
+        "PYTHONPATH": "/path/to/project",
+        "OPENPROJECT_URL": "https://your-instance.com",
+        "OPENPROJECT_API_KEY": "your-api-key"
+      }
     }
   }
 }
 ```
 
-**Why use the direct Python path?**
-The direct Python path approach is more reliable because:
-- It doesn't require `uv` to be in the system PATH
-- It avoids potential issues with `uv run` trying to install the project as a package
-- It's simpler and more straightforward for MCP server configurations
+**Note:** Using environment variables in config is more secure than storing credentials in `.env` file.
+
+**Verification:**
+
+Check if the server is connected:
+```powershell
+claude mcp list
+```
+
+You should see:
+```
+openproject-fastmcp: ... - ✓ Connected
+```
+
+If you see `✗ Failed to connect`, check:
+1. Python path is correct
+2. `openproject-mcp-fastmcp.py` file exists
+3. Environment variables are set correctly
+4. Restart Claude Desktop after configuration changes
+
+### Option 2: Cloud Deployment (FastMCP Cloud) ☁️
+
+Deploy to FastMCP Cloud for centralized access across your organization. This eliminates the need for each user to install Python and run the server locally.
+
+**Benefits:**
+- No local installation required for end users
+- Centralized API key and configuration management
+- Access from anywhere with internet
+- Automatic scaling and monitoring
+- Team collaboration features
+
+**Quick Start:**
+
+1. **Ensure you have the SSE entry point:**
+   ```bash
+   # The project includes openproject-mcp-sse.py for cloud deployment
+   ls openproject-mcp-sse.py
+   ```
+
+2. **Create/update .fastmcp.yaml config:**
+   ```yaml
+   name: openproject-mcp
+   version: "1.0.0"
+   description: "OpenProject MCP Server for Claude Desktop"
+
+   entry_point: openproject-mcp-sse.py
+
+   runtime:
+     python_version: "3.11"
+
+   environment:
+     - OPENPROJECT_URL
+     - OPENPROJECT_API_KEY
+     - OPENPROJECT_PROXY
+   ```
+
+3. **Deploy to FastMCP Cloud:**
+   ```bash
+   # Install FastMCP CLI (if not installed)
+   pip install fastmcp
+
+   # Login to FastMCP Cloud
+   fastmcp login
+
+   # Deploy your server
+   fastmcp deploy
+   ```
+
+4. **Configure environment variables** on FastMCP Cloud dashboard:
+   - `OPENPROJECT_URL`: Your OpenProject instance URL
+   - `OPENPROJECT_API_KEY`: Your API key
+   - `OPENPROJECT_PROXY`: (Optional) Proxy URL if needed
+
+5. **Users connect via Claude Desktop** with SSE transport:
+   ```json
+   {
+     "mcpServers": {
+       "openproject": {
+         "url": "https://mcp.fastmcp.com/sse/openproject-mcp",
+         "transport": "sse"
+       }
+     }
+   }
+   ```
+
+**📚 Detailed Documentation:**
+- [Quick Start Guide](QUICK_START_CLOUD.md) - Fast setup in 5 minutes
+- [FastMCP Cloud Deployment Guide (English)](FASTMCP_CLOUD_DEPLOYMENT.md) - Comprehensive guide
+- [Hướng dẫn kết nối Cloud (Tiếng Việt)](HUONG_DAN_KET_NOI_CLOUD.md) - Vietnamese guide
+
+For comprehensive deployment instructions, troubleshooting, and best practices, see the guides above.
 
 ### Available Tools
 
@@ -176,19 +335,71 @@ List all projects you have access to.
 List all active projects
 ```
 
-#### 3. `list_work_packages`
-List work packages with optional filtering.
+#### 3. `list_work_packages` ⭐ ENHANCED
+List work packages with advanced filtering capabilities - the most powerful search tool.
+
+**Basic Parameters:**
+- `project_id` (integer, optional): Filter by project
+- `assignee_id` (integer, optional): Filter by assignee
+- `active_only` (boolean, optional): Only open tasks (default: true)
+- `offset` (integer, optional): Pagination offset (default: 0)
+- `page_size` (integer, optional): Results per page (default: 20, max: 100)
+
+**Advanced Filters (NEW - 18 parameters):**
+- `priority_ids` (string, optional): Comma-separated priority IDs (e.g., "3,4")
+- `type_ids` (string, optional): Comma-separated type IDs (e.g., "1,2")
+- `status_ids` (string, optional): Comma-separated status IDs (overrides active_only)
+- `version_ids` (string, optional): Comma-separated version/sprint IDs
+- `due_before` (string, optional): Due before date (YYYY-MM-DD)
+- `due_after` (string, optional): Due after date (YYYY-MM-DD)
+- `created_after` (string, optional): Created after date (YYYY-MM-DD)
+- `updated_after` (string, optional): Updated after date (YYYY-MM-DD)
+- `unassigned_only` (boolean, optional): Only unassigned tasks
+- `overdue_only` (boolean, optional): Only overdue tasks
+- `percentage_done_min` (integer, optional): Min completion % (0-100)
+- `percentage_done_max` (integer, optional): Max completion % (0-100)
+- `author_id` (integer, optional): Filter by task creator
+- `parent_id` (integer, optional): Child tasks of parent
+- `no_parent_only` (boolean, optional): Only top-level tasks
+
+**Features:**
+- **23 total parameters** for ultimate flexibility
+- All filters use AND logic
+- 100% backward compatible
+- Smart filter priority (e.g., status_ids > active_only)
+
+**Examples:**
+```
+Find high-priority bugs due this week in project 5
+```
+```
+Find overdue unassigned tasks
+```
+```
+Show tasks 50-80% complete
+```
+
+#### 4. `search_work_packages`
+Search work packages by subject or ID using server-side filtering.
 
 **Parameters:**
-- `project_id` (integer, optional): Filter by specific project
-- `status` (string, optional): Filter by status - "open", "closed", or "all" (default: "open")
+- `query` (string, required): Search text to match against work package subject or ID
+- `project_id` (integer, optional): Limit search to a specific project
+- `active_only` (boolean, optional): Search only open work packages (default: true)
+- `offset` (integer, optional): Starting index for pagination (default: 0)
+- `page_size` (integer, optional): Number of results per page (default: 20, max: 100)
 
 **Example:**
 ```
-Show all open work packages in project 5
+Search for tasks containing "login"
+```
+```
+Search for work package by ID: "123"
 ```
 
-#### 4. `list_types`
+**Note:** This tool provides fast search without needing to paginate through all tasks. Use this when you need to find specific tasks by name or ID.
+
+#### 5. `list_types`
 List available work package types.
 
 **Parameters:**
@@ -199,7 +410,7 @@ List available work package types.
 List all work package types
 ```
 
-#### 5. `create_work_package`
+#### 6. `create_work_package`
 Create a new work package.
 
 **Parameters:**
@@ -215,38 +426,38 @@ Create a new work package.
 Create a new task in project 5 titled "Update documentation" with type ID 1
 ```
 
-#### 6. `list_users`
+#### 7. `list_users`
 List all users in the OpenProject instance.
 
 **Parameters:**
 - `active_only` (boolean, optional): Show only active users (default: true)
 
-#### 7. `get_user`
+#### 8. `get_user`
 Get detailed information about a specific user.
 
 **Parameters:**
 - `user_id` (integer, required): User ID
 
-#### 8. `list_memberships`
+#### 9. `list_memberships`
 List project memberships showing users and their roles.
 
 **Parameters:**
 - `project_id` (integer, optional): Filter by specific project
 - `user_id` (integer, optional): Filter by specific user
 
-#### 9. `list_statuses`
+#### 10. `list_statuses`
 List all available work package statuses.
 
-#### 10. `list_priorities`
+#### 11. `list_priorities`
 List all available work package priorities.
 
-#### 11. `get_work_package`
+#### 12. `get_work_package`
 Get detailed information about a specific work package.
 
 **Parameters:**
 - `work_package_id` (integer, required): Work package ID
 
-#### 12. `update_work_package`
+#### 13. `update_work_package`
 Update an existing work package.
 
 **Parameters:**
@@ -265,7 +476,135 @@ Delete a work package.
 **Parameters:**
 - `work_package_id` (integer, required): Work package ID
 
-#### 14. `list_time_entries`
+### Advanced Filters 🔍
+
+The following tools provide specialized filtering capabilities for common work package search scenarios. All tools support flexible filtering by project, assignee, priority, and type.
+
+#### 14. `list_overdue_work_packages`
+List all work packages that are past their due date.
+
+**Parameters:**
+- `project_id` (integer, optional): Filter by project
+- `assignee_id` (integer, optional): Filter by assignee
+- `priority_ids` (string, optional): Comma-separated priority IDs (e.g., "3,4")
+- `type_ids` (string, optional): Comma-separated type IDs (e.g., "1,2")
+- `page_size` (integer, optional): Results per page (default: 50, max: 100)
+
+**Features:**
+- Shows "X days overdue" for each task
+- Sorted by most overdue first
+- Only searches open (non-closed) tasks
+
+**Example:**
+```
+Find all overdue high-priority tasks in project 5
+```
+
+#### 15. `list_work_packages_due_soon`
+List work packages due within the next N days.
+
+**Parameters:**
+- `days` (integer, optional): Days to look ahead (default: 7, max: 365)
+- `project_id` (integer, optional): Filter by project
+- `assignee_id` (integer, optional): Filter by assignee
+- `priority_ids` (string, optional): Comma-separated priority IDs
+- `page_size` (integer, optional): Results per page (default: 50, max: 100)
+
+**Features:**
+- Shows "Due in X days", "Due tomorrow", or "Due today!"
+- Sorted by soonest first
+- Configurable lookahead period
+
+**Example:**
+```
+Show me tasks due in the next 3 days
+```
+
+#### 16. `list_unassigned_work_packages`
+List work packages that have no assignee.
+
+**Parameters:**
+- `project_id` (integer, optional): Filter by project
+- `priority_ids` (string, optional): Comma-separated priority IDs
+- `type_ids` (string, optional): Comma-separated type IDs
+- `active_only` (boolean, optional): Only open tasks (default: true)
+- `page_size` (integer, optional): Results per page (default: 50, max: 100)
+
+**Features:**
+- Identifies tasks needing assignment
+- Useful for sprint planning
+- Supports priority and type filtering
+
+**Example:**
+```
+Find unassigned high-priority bugs in project 5
+```
+
+#### 17. `list_work_packages_created_recently`
+List work packages created in the last N days.
+
+**Parameters:**
+- `days` (integer, optional): Days to look back (default: 7, max: 365)
+- `project_id` (integer, optional): Filter by project
+- `assignee_id` (integer, optional): Filter by assignee
+- `type_ids` (string, optional): Comma-separated type IDs
+- `active_only` (boolean, optional): Only open tasks (default: true)
+- `page_size` (integer, optional): Results per page (default: 50, max: 100)
+
+**Features:**
+- Track new task creation patterns
+- Sorted by newest first
+- Configurable lookback period
+
+**Example:**
+```
+Show bugs created in the last 3 days
+```
+
+#### 18. `list_high_priority_work_packages`
+List work packages with high priority.
+
+**Parameters:**
+- `project_id` (integer, optional): Filter by project
+- `assignee_id` (integer, optional): Filter by assignee
+- `type_ids` (string, optional): Comma-separated type IDs
+- `active_only` (boolean, optional): Only open tasks (default: true)
+- `page_size` (integer, optional): Results per page (default: 50, max: 100)
+
+**Features:**
+- Assumes priority ID 3 = "High" (typical default)
+- Includes helpful note about using `list_priorities` if needed
+- Quick access to urgent tasks
+
+**Example:**
+```
+Show all high-priority tasks in project 5
+```
+
+**Note:** If your OpenProject instance uses different priority IDs, use `list_priorities` to find the correct ID, then use the enhanced `list_work_packages` with specific `priority_ids` parameter.
+
+#### 19. `list_work_packages_nearly_complete`
+List work packages that are nearly complete (high percentage done).
+
+**Parameters:**
+- `project_id` (integer, optional): Filter by project
+- `assignee_id` (integer, optional): Filter by assignee
+- `min_percentage` (integer, optional): Minimum completion % (default: 80, range: 1-99)
+- `active_only` (boolean, optional): Only open tasks (default: true)
+- `page_size` (integer, optional): Results per page (default: 50, max: 100)
+
+**Features:**
+- Find tasks needing final push
+- Sorted by highest percentage first
+- Includes completion summary section
+- Useful for sprint reviews
+
+**Example:**
+```
+Show tasks more than 90% complete
+```
+
+#### 20. `list_time_entries`
 List time entries with optional filtering.
 
 **Parameters:**
@@ -542,7 +881,7 @@ uv sync
 
 ## Tool Compatibility & Test Results
 
-### ✅ Fully Working Tools (39/41)
+### ✅ Fully Working Tools (40/42)
 All these tools have been tested and work correctly with admin privileges:
 
 **Core Project Management:**
@@ -550,7 +889,7 @@ All these tools have been tested and work correctly with admin privileges:
 - `delete_project`, `get_project`
 
 **Work Package Management:**
-- `list_work_packages`, `list_types`, `create_work_package`, `update_work_package`
+- `list_work_packages`, `search_work_packages`, `list_types`, `create_work_package`, `update_work_package`
 - `delete_work_package`, `get_work_package`, `list_statuses`, `list_priorities`
 
 **Work Package Hierarchy & Relations:**

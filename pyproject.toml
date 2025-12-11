@@ -20,10 +20,14 @@ classifiers = [
 ]
 
 dependencies = [
+    "fastmcp>=2.0.0",
     "mcp>=1.0.0",
     "aiohttp>=3.8.0",
     "python-dotenv>=1.0.0",
     "certifi>=2022.0.0",
+    "pydantic>=2.0.0",
+    "uvicorn>=0.24.0",  # Required for SSE transport
+    "starlette>=0.27.0",  # Required for SSE transport
 ]
 
 [project.optional-dependencies]
@@ -36,6 +40,9 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
 
 [tool.black]
 line-length = 88
