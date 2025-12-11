@@ -335,16 +335,48 @@ List all projects you have access to.
 List all active projects
 ```
 
-#### 3. `list_work_packages`
-List work packages with optional filtering.
+#### 3. `list_work_packages` ⭐ ENHANCED
+List work packages with advanced filtering capabilities - the most powerful search tool.
 
-**Parameters:**
-- `project_id` (integer, optional): Filter by specific project
-- `status` (string, optional): Filter by status - "open", "closed", or "all" (default: "open")
+**Basic Parameters:**
+- `project_id` (integer, optional): Filter by project
+- `assignee_id` (integer, optional): Filter by assignee
+- `active_only` (boolean, optional): Only open tasks (default: true)
+- `offset` (integer, optional): Pagination offset (default: 0)
+- `page_size` (integer, optional): Results per page (default: 20, max: 100)
 
-**Example:**
+**Advanced Filters (NEW - 18 parameters):**
+- `priority_ids` (string, optional): Comma-separated priority IDs (e.g., "3,4")
+- `type_ids` (string, optional): Comma-separated type IDs (e.g., "1,2")
+- `status_ids` (string, optional): Comma-separated status IDs (overrides active_only)
+- `version_ids` (string, optional): Comma-separated version/sprint IDs
+- `due_before` (string, optional): Due before date (YYYY-MM-DD)
+- `due_after` (string, optional): Due after date (YYYY-MM-DD)
+- `created_after` (string, optional): Created after date (YYYY-MM-DD)
+- `updated_after` (string, optional): Updated after date (YYYY-MM-DD)
+- `unassigned_only` (boolean, optional): Only unassigned tasks
+- `overdue_only` (boolean, optional): Only overdue tasks
+- `percentage_done_min` (integer, optional): Min completion % (0-100)
+- `percentage_done_max` (integer, optional): Max completion % (0-100)
+- `author_id` (integer, optional): Filter by task creator
+- `parent_id` (integer, optional): Child tasks of parent
+- `no_parent_only` (boolean, optional): Only top-level tasks
+
+**Features:**
+- **23 total parameters** for ultimate flexibility
+- All filters use AND logic
+- 100% backward compatible
+- Smart filter priority (e.g., status_ids > active_only)
+
+**Examples:**
 ```
-Show all open work packages in project 5
+Find high-priority bugs due this week in project 5
+```
+```
+Find overdue unassigned tasks
+```
+```
+Show tasks 50-80% complete
 ```
 
 #### 4. `search_work_packages`
@@ -444,7 +476,135 @@ Delete a work package.
 **Parameters:**
 - `work_package_id` (integer, required): Work package ID
 
-#### 14. `list_time_entries`
+### Advanced Filters 🔍
+
+The following tools provide specialized filtering capabilities for common work package search scenarios. All tools support flexible filtering by project, assignee, priority, and type.
+
+#### 14. `list_overdue_work_packages`
+List all work packages that are past their due date.
+
+**Parameters:**
+- `project_id` (integer, optional): Filter by project
+- `assignee_id` (integer, optional): Filter by assignee
+- `priority_ids` (string, optional): Comma-separated priority IDs (e.g., "3,4")
+- `type_ids` (string, optional): Comma-separated type IDs (e.g., "1,2")
+- `page_size` (integer, optional): Results per page (default: 50, max: 100)
+
+**Features:**
+- Shows "X days overdue" for each task
+- Sorted by most overdue first
+- Only searches open (non-closed) tasks
+
+**Example:**
+```
+Find all overdue high-priority tasks in project 5
+```
+
+#### 15. `list_work_packages_due_soon`
+List work packages due within the next N days.
+
+**Parameters:**
+- `days` (integer, optional): Days to look ahead (default: 7, max: 365)
+- `project_id` (integer, optional): Filter by project
+- `assignee_id` (integer, optional): Filter by assignee
+- `priority_ids` (string, optional): Comma-separated priority IDs
+- `page_size` (integer, optional): Results per page (default: 50, max: 100)
+
+**Features:**
+- Shows "Due in X days", "Due tomorrow", or "Due today!"
+- Sorted by soonest first
+- Configurable lookahead period
+
+**Example:**
+```
+Show me tasks due in the next 3 days
+```
+
+#### 16. `list_unassigned_work_packages`
+List work packages that have no assignee.
+
+**Parameters:**
+- `project_id` (integer, optional): Filter by project
+- `priority_ids` (string, optional): Comma-separated priority IDs
+- `type_ids` (string, optional): Comma-separated type IDs
+- `active_only` (boolean, optional): Only open tasks (default: true)
+- `page_size` (integer, optional): Results per page (default: 50, max: 100)
+
+**Features:**
+- Identifies tasks needing assignment
+- Useful for sprint planning
+- Supports priority and type filtering
+
+**Example:**
+```
+Find unassigned high-priority bugs in project 5
+```
+
+#### 17. `list_work_packages_created_recently`
+List work packages created in the last N days.
+
+**Parameters:**
+- `days` (integer, optional): Days to look back (default: 7, max: 365)
+- `project_id` (integer, optional): Filter by project
+- `assignee_id` (integer, optional): Filter by assignee
+- `type_ids` (string, optional): Comma-separated type IDs
+- `active_only` (boolean, optional): Only open tasks (default: true)
+- `page_size` (integer, optional): Results per page (default: 50, max: 100)
+
+**Features:**
+- Track new task creation patterns
+- Sorted by newest first
+- Configurable lookback period
+
+**Example:**
+```
+Show bugs created in the last 3 days
+```
+
+#### 18. `list_high_priority_work_packages`
+List work packages with high priority.
+
+**Parameters:**
+- `project_id` (integer, optional): Filter by project
+- `assignee_id` (integer, optional): Filter by assignee
+- `type_ids` (string, optional): Comma-separated type IDs
+- `active_only` (boolean, optional): Only open tasks (default: true)
+- `page_size` (integer, optional): Results per page (default: 50, max: 100)
+
+**Features:**
+- Assumes priority ID 3 = "High" (typical default)
+- Includes helpful note about using `list_priorities` if needed
+- Quick access to urgent tasks
+
+**Example:**
+```
+Show all high-priority tasks in project 5
+```
+
+**Note:** If your OpenProject instance uses different priority IDs, use `list_priorities` to find the correct ID, then use the enhanced `list_work_packages` with specific `priority_ids` parameter.
+
+#### 19. `list_work_packages_nearly_complete`
+List work packages that are nearly complete (high percentage done).
+
+**Parameters:**
+- `project_id` (integer, optional): Filter by project
+- `assignee_id` (integer, optional): Filter by assignee
+- `min_percentage` (integer, optional): Minimum completion % (default: 80, range: 1-99)
+- `active_only` (boolean, optional): Only open tasks (default: true)
+- `page_size` (integer, optional): Results per page (default: 50, max: 100)
+
+**Features:**
+- Find tasks needing final push
+- Sorted by highest percentage first
+- Includes completion summary section
+- Useful for sprint reviews
+
+**Example:**
+```
+Show tasks more than 90% complete
+```
+
+#### 20. `list_time_entries`
 List time entries with optional filtering.
 
 **Parameters:**

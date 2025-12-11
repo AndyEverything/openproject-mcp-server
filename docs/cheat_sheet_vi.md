@@ -52,6 +52,26 @@
 | **Xem danh sách task con** | "Liệt kê tất cả task con của task #**[Parent ID]**." | "Liệt kê task con của task #40." |
 | **Xóa quan hệ cha-con** | "Xóa parent của task #**[Child ID]**." | "Xóa parent của task #50." |
 
+### 2.5 🔍 Tìm Kiếm Nâng Cao (Advanced Filters)
+
+| Mục đích | Câu Lệnh Mẫu | Ví Dụ |
+| :--- | :--- | :--- |
+| **Task quá hạn** | "Hiện task quá hạn trong dự án **[ID/Tên]**." | "Hiện task quá hạn trong dự án 18." |
+| **Task sắp đến hạn** | "Hiện task sắp đến hạn trong **[N]** ngày tới." | "Hiện task đến hạn trong 3 ngày tới." |
+| **Task chưa gán người** | "Hiện task chưa có người nhận trong dự án **[ID]**." | "Hiện task unassigned priority cao trong dự án 5." |
+| **Task mới tạo** | "Hiện task được tạo trong **[N]** ngày gần đây." | "Hiện bug tạo trong 7 ngày qua." |
+| **Task ưu tiên cao** | "Hiện tất cả task priority cao trong dự án **[ID]**." | "Hiện task ưu tiên cao trong dự án 18." |
+| **Task gần hoàn thành** | "Hiện task > **[%]** %done." | "Hiện task >90% complete." |
+| **Tìm kiếm linh hoạt** | "Tìm task **[điều kiện 1]** và **[điều kiện 2]** trong dự án **[ID]**." | "Tìm bug ưu tiên cao, quá hạn, chưa gán người trong dự án 5." |
+
+**Ví Dụ Nâng Cao:**
+- **Sprint Planning**: "Tìm task unassigned, priority cao trong sprint hiện tại" → chuẩn bị phân công
+- **Daily Standup**: "Hiện task quá hạn của team" → theo dõi tiến độ
+- **Weekly Review**: "Hiện bug tạo tuần này" → phân tích xu hướng
+- **Sprint Cleanup**: "Tìm task 80-99% done" → chuẩn bị đóng sprint
+- **Escalation**: "Tìm task quá hạn >5 ngày, priority cao, chưa gán người" → báo cáo khẩn cấp
+
+
 ---
 
 ## 👥 3. Quản Lý Người Dùng & Quyền (Users & Memberships)
