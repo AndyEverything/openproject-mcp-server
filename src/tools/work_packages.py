@@ -47,48 +47,211 @@ class UpdateWorkPackageInput(BaseModel):
 
 @mcp.tool
 async def list_work_packages(
+    # Existing parameters (backward compatible)
     project_id: Optional[int] = None,
     assignee_id: Optional[int] = None,
     active_only: bool = True,
     offset: int = 0,
-    page_size: int = 20
+    page_size: int = 20,
+    
+    # NEW: Multi-value filters (comma-separated IDs)
+    priority_ids: Optional[str] = None,
+    type_ids: Optional[str] = None,
+    status_ids: Optional[str] = None,
+    version_ids: Optional[str] = None,
+    
+    # NEW: Date filters
+    due_before: Optional[str] = None,  # YYYY-MM-DD
+    due_after: Optional[str] = None,   # YYYY-MM-DD
+    created_after: Optional[str] = None,  # YYYY-MM-DD
+    updated_after: Optional[str] = None,  # YYYY-MM-DD
+    
+    # NEW: Boolean filters
+    unassigned_only: bool = False,
+    overdue_only: bool = False,
+    
+    # NEW: Percentage filters
+    percentage_done_min: Optional[int] = None,
+    percentage_done_max: Optional[int] = None,
+    
+    # NEW: Additional filters
+    author_id: Optional[int] = None,
+    parent_id: Optional[int] = None,
+    no_parent_only: bool = False
 ) -> str:
-    """List work packages (tasks) - CRITICAL tool for viewing all tasks.
-
-    This is one of the most important tools for your 12 users to view and manage their work.
-
+    """List work packages (tasks) with advanced filtering - CRITICAL tool for flexible task search.
+    
+    This is the most powerful search tool with 20+ filter parameters for finding exactly
+    the tasks you need. Supports multiple filters combined with AND logic.
+    
     Args:
-        project_id: Optional project ID to filter work packages by project
-        assignee_id: Optional user ID to filter work packages by assignee
-        active_only: If True, only show work packages with open status (default: True)
+        # Basic filters
+        project_id: Optional project ID to filter by
+        assignee_id: Optional user ID to filter by assignee (ignored if unassigned_only=True)
+        active_only: If True, only show open work packages (default: True)
         offset: Starting index for pagination (default: 0)
         page_size: Number of results per page (default: 20, max: 100)
-
+        
+        # Multi-value filters (comma-separated IDs)
+        priority_ids: Comma-separated priority IDs (e.g., "3,4" for high+urgent)
+        type_ids: Comma-separated type IDs (e.g., "1,2" for bugs+features)
+        status_ids: Comma-separated status IDs (overrides active_only if provided)
+        version_ids: Comma-separated version/sprint IDs
+        
+        # Date filters
+        due_before: Due date before this date (YYYY-MM-DD format)
+        due_after: Due date after this date (YYYY-MM-DD format)
+        created_after: Created after this date (YYYY-MM-DD format)
+        updated_after: Updated after this date (YYYY-MM-DD format)
+        
+        # Boolean filters
+        unassigned_only: If True, only show tasks without assignee
+        overdue_only: If True, only show tasks past their due date
+        
+        # Percentage filters
+        percentage_done_min: Minimum completion percentage (0-100)
+        percentage_done_max: Maximum completion percentage (0-100)
+        
+        # Additional filters
+        author_id: Filter by task creator/author
+        parent_id: Filter by parent work package ID (child tasks)
+        no_parent_only: If True, only show top-level tasks (no parent)
+    
     Returns:
-        Formatted list of work packages with type, status, priority, assignee, and dates
+        Formatted list of work packages matching all specified filters
+        
+    Examples:
+        Find high-priority bugs due this week:
+        {
+            "priority_ids": "3",
+            "type_ids": "1",
+            "due_before": "2025-12-15",
+            "due_after": "2025-12-08"
+        }
+        
+        Find overdue unassigned tasks in project #5:
+        {
+            "project_id": 5,
+            "unassigned_only": true,
+            "overdue_only": true
+        }
+        
+        Find nearly complete tasks (>80%):
+        {
+            "percentage_done_min": 80,
+            "active_only": true
+        }
     """
     try:
+        from datetime import date, datetime
+        
         client = get_client()
 
-        # Build filters
+        # Build filters list
         filters_list = []
         
-        # BUG FIX: active_only filter correction
-        # OpenProject API has special operators for status:
-        # - "o" = open (not closed)
-        # - "c" = closed only
-        # - "*" = all (open + closed)
-        # When active_only=False, we must EXPLICITLY request all statuses!
-        if active_only:
-            # Filter for open statuses only (not closed)
+        # === STATUS FILTER ===
+        # Priority: status_ids > overdue_only > active_only
+        if status_ids:
+            # Explicit status IDs provided
+            status_list = [s.strip() for s in status_ids.split(",") if s.strip()]
+            if status_list:
+                filters_list.append({"status": {"operator": "=", "values": status_list}})
+        elif overdue_only:
+            # Overdue mode: must be open
+            filters_list.append({"status": {"operator": "o", "values": []}})
+        elif active_only:
+            # Open status only
             filters_list.append({"status": {"operator": "o", "values": []}})
         else:
-            # Explicitly include ALL statuses (open + closed)
+            # All statuses (open + closed)
             filters_list.append({"status": {"operator": "*", "values": []}})
-        if assignee_id:
-            # Filter by assignee
+        
+        # === ASSIGNEE FILTER ===
+        if unassigned_only:
+            # Unassigned takes priority over assignee_id
+            filters_list.append({"assignee": {"operator": "!*", "values": []}})
+        elif assignee_id:
             filters_list.append({"assignee": {"operator": "=", "values": [str(assignee_id)]}})
-
+        
+        # === PRIORITY FILTER ===
+        if priority_ids:
+            priority_list = [p.strip() for p in priority_ids.split(",") if p.strip()]
+            if priority_list:
+                filters_list.append({"priority": {"operator": "=", "values": priority_list}})
+        
+        # === TYPE FILTER ===
+        if type_ids:
+            type_list = [t.strip() for t in type_ids.split(",") if t.strip()]
+            if type_list:
+                filters_list.append({"type": {"operator": "=", "values": type_list}})
+        
+        # === VERSION FILTER ===
+        if version_ids:
+            version_list = [v.strip() for v in version_ids.split(",") if v.strip()]
+            if version_list:
+                filters_list.append({"version": {"operator": "=", "values": version_list}})
+        
+        # === DATE FILTERS ===
+        # Overdue filter (special case)
+        if overdue_only:
+            # Due date < today
+            today = date.today().isoformat()
+            filters_list.append({"dueDate": {"operator": "<>d", "values": ["2000-01-01", today]}})
+        else:
+            # Regular due date filters
+            if due_before and due_after:
+                # Date range
+                filters_list.append({"dueDate": {"operator": "<>d", "values": [due_after, due_before]}})
+            elif due_before:
+                # Before specific date (use range from old date to due_before)
+                filters_list.append({"dueDate": {"operator": "<>d", "values": ["2000-01-01", due_before]}})
+            elif due_after:
+                # After specific date (use range from due_after to far future)
+                filters_list.append({"dueDate": {"operator": "<>d", "values": [due_after, "2099-12-31"]}})
+        
+        # Created after filter
+        if created_after:
+            # Use date range from created_after to far future
+            filters_list.append({"createdAt": {"operator": "<>d", "values": [created_after, "2099-12-31"]}})
+        
+        # Updated after filter
+        if updated_after:
+            # Use date range from updated_after to far future
+            filters_list.append({"updatedAt": {"operator": "<>d", "values": [updated_after, "2099-12-31"]}})
+        
+        # === PERCENTAGE FILTER ===
+        if percentage_done_min is not None and percentage_done_max is not None:
+            # Range filter
+            if percentage_done_min > percentage_done_max:
+                return format_error("percentage_done_min cannot be greater than percentage_done_max")
+            # Use two filters: >= min AND <= max
+            filters_list.append({"percentageDone": {"operator": ">=", "values": [str(percentage_done_min)]}})
+            filters_list.append({"percentageDone": {"operator": "<=", "values": [str(percentage_done_max)]}})
+        elif percentage_done_min is not None:
+            # Minimum only
+            if percentage_done_min < 0 or percentage_done_min > 100:
+                return format_error("percentage_done_min must be between 0 and 100")
+            filters_list.append({"percentageDone": {"operator": ">=", "values": [str(percentage_done_min)]}})
+        elif percentage_done_max is not None:
+            # Maximum only
+            if percentage_done_max < 0 or percentage_done_max > 100:
+                return format_error("percentage_done_max must be between 0 and 100")
+            filters_list.append({"percentageDone": {"operator": "<=", "values": [str(percentage_done_max)]}})
+        
+        # === AUTHOR FILTER ===
+        if author_id:
+            filters_list.append({"author": {"operator": "=", "values": [str(author_id)]}})
+        
+        # === PARENT FILTER ===
+        if no_parent_only:
+            # Top-level tasks only (no parent)
+            filters_list.append({"parent": {"operator": "!*", "values": []}})
+        elif parent_id:
+            # Specific parent
+            filters_list.append({"parent": {"operator": "=", "values": [str(parent_id)]}})
+        
+        # Convert filters to JSON
         filters = json.dumps(filters_list) if filters_list else None
 
         # Validate pagination parameters
@@ -119,6 +282,8 @@ async def list_work_packages(
 
     except Exception as e:
         return format_error(f"Failed to list work packages: {str(e)}")
+
+
 
 
 @mcp.tool
@@ -1036,4 +1201,294 @@ async def list_unassigned_work_packages(
         
     except Exception as e:
         return format_error(f"Failed to list unassigned work packages: {str(e)}")
+
+
+@mcp.tool
+async def list_work_packages_created_recently(
+    days: int = 7,
+    project_id: Optional[int] = None,
+    assignee_id: Optional[int] = None,
+    type_ids: Optional[str] = None,
+    active_only: bool = True,
+    page_size: int = 50
+) -> str:
+    """List work packages created in the last N days.
+    
+    This helps identify new tasks and track task creation patterns.
+    
+    Args:
+        days: Number of days to look back (default: 7)
+        project_id: Optional project ID to filter by
+        assignee_id: Optional user ID to filter by assignee
+        type_ids: Optional comma-separated type IDs (e.g., "1,2" for bugs+features)
+        active_only: If True, only show open work packages (default: True)
+        page_size: Number of results to return (default: 50, max: 100)
+    
+    Returns:
+        Formatted list of recently created work packages, sorted by newest first
+        
+    Example:
+        Show all bugs created in the last 3 days:
+        {
+            "days": 3,
+            "type_ids": "1"
+        }
+    """
+    try:
+        from datetime import date, timedelta, datetime
+        
+        client = get_client()
+        
+        # Validate days parameter
+        if days < 1:
+            return format_error("days must be at least 1")
+        if days > 365:
+            return format_error("days cannot exceed 365")
+        
+        # Calculate date range
+        # Note: Use <t operator for "ago" (created less than N days ago)
+        filters_list = [
+            # Created at < N days ago (i.e., within last N days)
+            {"createdAt": {"operator": "<t", "values": [str(days)]}}
+        ]
+        
+        # Add status filter
+        if active_only:
+            filters_list.append({"status": {"operator": "o", "values": []}})
+        else:
+            filters_list.append({"status": {"operator": "*", "values": []}})
+        
+        # Add optional filters
+        if assignee_id:
+            filters_list.append({"assignee": {"operator": "=", "values": [str(assignee_id)]}})
+        
+        if type_ids:
+            type_list = [t.strip() for t in type_ids.split(",") if t.strip()]
+            if type_list:
+                filters_list.append({"type": {"operator": "=", "values": type_list}})
+        
+        filters = json.dumps(filters_list)
+        
+        # Validate page_size
+        if page_size < 1 or page_size > 100:
+            return format_error("page_size must be between 1 and 100")
+        
+        result = await client.get_work_packages(
+            project_id=project_id,
+            filters=filters,
+            page_size=page_size
+        )
+        
+        work_packages = result.get("_embedded", {}).get("elements", [])
+        total = result.get("total", 0)
+        
+        if not work_packages:
+            return f"✅ No work packages created in the last {days} day(s)!"
+        
+        # Sort by creation date (newest first)
+        work_packages.sort(key=lambda w: w.get("createdAt", ""), reverse=True)
+        
+        # Format response
+        text = f"🆕 **Recently Created Work Packages**: {total} task(s) created in last {days} day(s)\n\n"
+        text += format_work_package_list(work_packages)
+        
+        if total > page_size:
+            text += f"\n📄 Showing first {page_size} of {total} total\n"
+        
+        return text
+        
+    except Exception as e:
+        return format_error(f"Failed to list recently created work packages: {str(e)}")
+
+
+@mcp.tool
+async def list_high_priority_work_packages(
+    project_id: Optional[int] = None,
+    assignee_id: Optional[int] = None,
+    type_ids: Optional[str] = None,
+    active_only: bool = True,
+    page_size: int = 50
+) -> str:
+    """List work packages with high priority.
+    
+    This tool finds tasks marked as high priority or urgent. Note that you need to know
+    the priority ID for "High" in your OpenProject instance (typically 3 or 4).
+    Use list_priorities tool first if you don't know the priority IDs.
+    
+    Args:
+        project_id: Optional project ID to filter by
+        assignee_id: Optional user ID to filter by assignee
+        type_ids: Optional comma-separated type IDs (e.g., "1" for bugs only)
+        active_only: If True, only show open work packages (default: True)
+        page_size: Number of results to return (default: 50, max: 100)
+    
+    Returns:
+        Formatted list of high priority work packages
+        
+    Example:
+        Show all high-priority bugs in project #5:
+        {
+            "project_id": 5,
+            "type_ids": "1"
+        }
+        
+    Note:
+        This assumes priority ID 3 = "High". If your instance uses different IDs,
+        use list_priorities to find the correct ID, then use list_work_packages
+        with priority_ids parameter instead.
+    """
+    try:
+        client = get_client()
+        
+        # Build filters - assume priority ID 3 is "High"
+        # Users can override by using list_work_packages with specific priority_ids
+        filters_list = [
+            # Priority = 3 (typically "High" in OpenProject)
+            {"priority": {"operator": "=", "values": ["3"]}}
+        ]
+        
+        # Add status filter
+        if active_only:
+            filters_list.append({"status": {"operator": "o", "values": []}})
+        else:
+            filters_list.append({"status": {"operator": "*", "values": []}})
+        
+        # Add optional filters
+        if assignee_id:
+            filters_list.append({"assignee": {"operator": "=", "values": [str(assignee_id)]}})
+        
+        if type_ids:
+            type_list = [t.strip() for t in type_ids.split(",") if t.strip()]
+            if type_list:
+                filters_list.append({"type": {"operator": "=", "values": type_list}})
+        
+        filters = json.dumps(filters_list)
+        
+        # Validate page_size
+        if page_size < 1 or page_size > 100:
+            return format_error("page_size must be between 1 and 100")
+        
+        result = await client.get_work_packages(
+            project_id=project_id,
+            filters=filters,
+            page_size=page_size
+        )
+        
+        work_packages = result.get("_embedded", {}).get("elements", [])
+        total = result.get("total", 0)
+        
+        if not work_packages:
+            return "✅ No high priority work packages found!"
+        
+        # Format response
+        text = f"🔴 **High Priority Work Packages**: {total} task(s)\n\n"
+        text += "💡 Note: This lists tasks with priority ID 3 (typically 'High').\n"
+        text += "   Use list_priorities to see all priority IDs in your instance.\n\n"
+        text += format_work_package_list(work_packages)
+        
+        if total > page_size:
+            text += f"\n📄 Showing first {page_size} of {total} total\n"
+        
+        return text
+        
+    except Exception as e:
+        return format_error(f"Failed to list high priority work packages: {str(e)}")
+
+
+@mcp.tool
+async def list_work_packages_nearly_complete(
+    project_id: Optional[int] = None,
+    assignee_id: Optional[int] = None,
+    min_percentage: int = 80,
+    active_only: bool = True,
+    page_size: int = 50
+) -> str:
+    """List work packages that are nearly complete (high percentage done).
+    
+    This helps identify tasks that are almost finished and may need a final push.
+    Useful for sprint reviews and workload tracking.
+    
+    Args:
+        project_id: Optional project ID to filter by
+        assignee_id: Optional user ID to filter by assignee
+        min_percentage: Minimum completion percentage (default: 80, range: 1-99)
+        active_only: If True, only show open work packages (default: True)
+        page_size: Number of results to return (default: 50, max: 100)
+    
+    Returns:
+        Formatted list of nearly complete work packages
+        
+    Example:
+        Show tasks >90% complete in project #5:
+        {
+            "project_id": 5,
+            "min_percentage": 90
+        }
+    """
+    try:
+        client = get_client()
+        
+        # Validate min_percentage
+        if min_percentage < 1 or min_percentage > 99:
+            return format_error("min_percentage must be between 1 and 99")
+        
+        # Build filters
+        filters_list = [
+            # Percentage done >= min_percentage
+            {"percentageDone": {"operator": ">=", "values": [str(min_percentage)]}}
+        ]
+        
+        # Add status filter
+        if active_only:
+            filters_list.append({"status": {"operator": "o", "values": []}})
+        else:
+            filters_list.append({"status": {"operator": "*", "values": []}})
+        
+        # Add optional filters
+        if assignee_id:
+            filters_list.append({"assignee": {"operator": "=", "values": [str(assignee_id)]}})
+        
+        filters = json.dumps(filters_list)
+        
+        # Validate page_size
+        if page_size < 1 or page_size > 100:
+            return format_error("page_size must be between 1 and 100")
+        
+        result = await client.get_work_packages(
+            project_id=project_id,
+            filters=filters,
+            page_size=page_size
+        )
+        
+        work_packages = result.get("_embedded", {}).get("elements", [])
+        total = result.get("total", 0)
+        
+        if not work_packages:
+            return f"✅ No work packages with ≥{min_percentage}% completion found!"
+        
+        # Sort by percentage done (highest first)
+        work_packages.sort(key=lambda w: w.get("percentageDone", 0), reverse=True)
+        
+        # Format response
+        text = f"📊 **Nearly Complete Work Packages**: {total} task(s) ≥{min_percentage}% done\n\n"
+        text += format_work_package_list(work_packages)
+        
+        # Add completion percentages in summary
+        if work_packages:
+            text += "\n**Completion Summary**:\n"
+            for wp in work_packages[:10]:  # Show first 10
+                percentage = wp.get("percentageDone", 0)
+                subject = wp.get("subject", "Unknown")[:50]
+                text += f"  - #{wp.get('id')}: {percentage}% - {subject}\n"
+            if len(work_packages) > 10:
+                text += f"  ... and {len(work_packages) - 10} more\n"
+        
+        if total > page_size:
+            text += f"\n📄 Showing first {page_size} of {total} total\n"
+        
+        return text
+        
+    except Exception as e:
+        return format_error(f"Failed to list nearly complete work packages: {str(e)}")
+
 
