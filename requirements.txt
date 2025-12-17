@@ -2,3 +2,4 @@ mcp
 aiohttp
 python-dotenv
 certifi
+openpyxl
