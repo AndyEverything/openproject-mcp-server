@@ -18,6 +18,13 @@ from urllib.parse import quote
 import base64
 import ssl
 from dotenv import load_dotenv
+try:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    OPENPYXL_AVAILABLE = True
+except ImportError:
+    OPENPYXL_AVAILABLE = False
+    logger.warning("openpyxl not available. Install with: pip install openpyxl")
 
 from mcp.server import Server
 from mcp.types import (
@@ -39,6 +46,9 @@ logger = logging.getLogger(__name__)
 __version__ = "1.0.0"
 __author__ = "Your Name"
 __license__ = "MIT"
+
+# Default page size for API requests (to handle large datasets)
+DEFAULT_PAGE_SIZE = 50000
 
 
 class OpenProjectClient:
@@ -98,7 +108,17 @@ class OpenProjectClient:
             logger.debug(f"Request body: {json.dumps(data, indent=2)}")
 
         # Configure SSL and timeout
-        ssl_context = ssl.create_default_context()
+        # Check if SSL verification should be disabled (useful for self-signed certificates)
+        verify_ssl = os.getenv("OPENPROJECT_VERIFY_SSL", "true").lower() == "true"
+
+        if verify_ssl:
+            ssl_context = ssl.create_default_context()
+        else:
+            logger.warning("SSL certificate verification is DISABLED. This is insecure for production use.")
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+
         connector = aiohttp.TCPConnector(ssl=ssl_context)
         timeout = aiohttp.ClientTimeout(total=30)
 
@@ -169,20 +189,29 @@ class OpenProjectClient:
         logger.info("Testing API connection...")
         return await self._request("GET", "")
 
-    async def get_projects(self, filters: Optional[str] = None) -> Dict:
+    async def get_projects(self, filters: Optional[str] = None, page_size: int = DEFAULT_PAGE_SIZE) -> Dict:
         """
         Retrieve all projects.
 
         Args:
             filters: Optional JSON-encoded filter string
+            page_size: Number of results per page (default: DEFAULT_PAGE_SIZE)
 
         Returns:
             Dict: API response containing projects
         """
         endpoint = "/projects"
+        query_params = []
+        
         if filters:
             encoded_filters = quote(filters)
-            endpoint += f"?filters={encoded_filters}"
+            query_params.append(f"filters={encoded_filters}")
+        
+        # Add pageSize parameter to fetch up to DEFAULT_PAGE_SIZE projects
+        query_params.append(f"pageSize={page_size}")
+        
+        if query_params:
+            endpoint += "?" + "&".join(query_params)
 
         result = await self._request("GET", endpoint)
 
@@ -199,7 +228,7 @@ class OpenProjectClient:
         project_id: Optional[int] = None,
         filters: Optional[str] = None,
         offset: Optional[int] = None,
-        page_size: Optional[int] = None,
+        page_size: Optional[int] = DEFAULT_PAGE_SIZE,
     ) -> Dict:
         """
         Retrieve work packages.
@@ -208,7 +237,7 @@ class OpenProjectClient:
             project_id: Optional project ID to filter by
             filters: Optional JSON-encoded filter string
             offset: Optional starting index for pagination
-            page_size: Optional number of results per page
+            page_size: Optional number of results per page (default: DEFAULT_PAGE_SIZE)
 
         Returns:
             Dict: API response containing work packages
@@ -311,9 +340,9 @@ class OpenProjectClient:
             Dict: API response containing types
         """
         if project_id:
-            endpoint = f"/projects/{project_id}/types"
+            endpoint = f"/projects/{project_id}/types?pageSize={DEFAULT_PAGE_SIZE}"
         else:
-            endpoint = "/types"
+            endpoint = f"/types?pageSize={DEFAULT_PAGE_SIZE}"
 
         result = await self._request("GET", endpoint)
 
@@ -325,20 +354,29 @@ class OpenProjectClient:
 
         return result
 
-    async def get_users(self, filters: Optional[str] = None) -> Dict:
+    async def get_users(self, filters: Optional[str] = None, page_size: int = DEFAULT_PAGE_SIZE) -> Dict:
         """
         Retrieve users.
 
         Args:
             filters: Optional JSON-encoded filter string
+            page_size: Number of results per page (default: DEFAULT_PAGE_SIZE)
 
         Returns:
             Dict: API response containing users
         """
         endpoint = "/users"
+        query_params = []
+        
         if filters:
             encoded_filters = quote(filters)
-            endpoint += f"?filters={encoded_filters}"
+            query_params.append(f"filters={encoded_filters}")
+        
+        # Add pageSize parameter to fetch more than default 50 users
+        query_params.append(f"pageSize={page_size}")
+        
+        if query_params:
+            endpoint += "?" + "&".join(query_params)
 
         result = await self._request("GET", endpoint)
 
@@ -362,6 +400,154 @@ class OpenProjectClient:
         """
         return await self._request("GET", f"/users/{user_id}")
 
+    async def create_comment(self, work_package_id: int, comment: str) -> Dict:
+        """
+        Create a comment on a work package.
+
+        Args:
+            work_package_id: The work package ID
+            comment: The comment text
+
+        Returns:
+            Dict: Created comment data
+        """
+        payload = {
+            "comment": {
+                "raw": comment
+            }
+        }
+        return await self._request("POST", f"/work_packages/{work_package_id}/activities", payload)
+
+    async def get_comment(self, work_package_id: int) -> Dict:
+        """
+        Get comments for a work package.
+
+        Args:
+            work_package_id: The work package ID
+
+        Returns:
+            Dict: Comments data
+        """
+        result = await self._request("GET", f"/work_packages/{work_package_id}/activities?pageSize={DEFAULT_PAGE_SIZE}")
+        
+        # Ensure proper response structure
+        if "_embedded" not in result:
+            result["_embedded"] = {"elements": []}
+        elif "elements" not in result.get("_embedded", {}):
+            result["_embedded"]["elements"] = []
+        
+        return result
+
+    async def update_comment(self, comment_id: int, comment: str) -> Dict:
+        """
+        Update a comment.
+
+        Args:
+            comment_id: The comment ID
+            comment: The new comment text
+
+        Returns:
+            Dict: Updated comment data
+        """
+        payload = {
+            "comment": {
+                "raw": comment
+            }
+        }
+        return await self._request("PATCH", f"/activities/{comment_id}", payload)
+
+    async def get_queries(self, project_id: Optional[int] = None) -> Dict:
+        """
+        Get available queries (views) for a project or globally.
+
+        Args:
+            project_id: Optional project ID to get project-specific queries
+
+        Returns:
+            Dict: Queries data
+        """
+        endpoint = f"/queries?pageSize={DEFAULT_PAGE_SIZE}"
+        
+        result = await self._request("GET", endpoint)
+        
+        # Ensure proper response structure
+        if "_embedded" not in result:
+            result["_embedded"] = {"elements": []}
+        elif "elements" not in result.get("_embedded", {}):
+            result["_embedded"]["elements"] = []
+        
+        # Client-side filtering by project if needed
+        if project_id:
+            all_queries = result.get("_embedded", {}).get("elements", [])
+            filtered_queries = []
+            for query in all_queries:
+                # Check if query belongs to the project
+                query_project_link = query.get("_links", {}).get("project", {}).get("href", "")
+                if query_project_link and (query_project_link.endswith(f"/{project_id}") or query_project_link.endswith(f"/projects/{project_id}")):
+                    filtered_queries.append(query)
+                # Also check if there's no project link (might be global or user query)
+                elif not query_project_link and query.get("_links", {}).get("project") is None:
+                    # Skip queries without project association when filtering by project
+                    pass
+            result["_embedded"]["elements"] = filtered_queries
+        
+        return result
+
+    async def get_query(self, query_id: int) -> Dict:
+        """
+        Get a specific query (view) by ID.
+
+        Args:
+            query_id: The query ID
+
+        Returns:
+            Dict: Query data with filters and columns
+        """
+        return await self._request("GET", f"/queries/{query_id}")
+
+    async def get_query_results(self, query_id: int) -> Dict:
+        """
+        Get work packages results for a specific query.
+
+        Args:
+            query_id: The query ID
+
+        Returns:
+            Dict: Work packages matching the query
+        """
+        # First get the query to extract filters and configuration
+        query = await self._request("GET", f"/queries/{query_id}")
+        
+        # Try to get the results href from the query's _links
+        if "_links" in query and "results" in query["_links"]:
+            results_href = query["_links"]["results"]["href"]
+            # Extract the path from the href (remove /api/v3 prefix if present)
+            if results_href.startswith("/api/v3"):
+                results_path = results_href[7:]  # Remove '/api/v3'
+            else:
+                results_path = results_href
+            
+            result = await self._request("GET", results_path)
+        else:
+            # Fallback: fetch all work packages and filter by project if available
+            endpoint = "/work_packages"
+            
+            # Try to get project from query
+            if "_links" in query and "project" in query["_links"]:
+                project_href = query["_links"]["project"]["href"]
+                project_id = project_href.split("/")[-1]
+                endpoint = f"/projects/{project_id}/work_packages"
+            
+            result = await self._request("GET", endpoint)
+        
+        # Ensure proper response structure
+        if "_embedded" not in result:
+            result["_embedded"] = {"elements": []}
+        elif "elements" not in result.get("_embedded", {}):
+            result["_embedded"]["elements"] = []
+        
+        return result
+
     async def get_memberships(
         self, project_id: Optional[int] = None, user_id: Optional[int] = None
     ) -> Dict:
@@ -376,6 +562,10 @@ class OpenProjectClient:
             Dict: API response containing memberships
         """
         endpoint = "/memberships"
+        query_params = []
+        
+        # Add page size for large datasets
+        query_params.append(f"pageSize={DEFAULT_PAGE_SIZE}")
 
         # Use filters instead of path-based filtering for better compatibility
         filters = []
@@ -386,7 +576,10 @@ class OpenProjectClient:
 
         if filters:
             filter_string = quote(json.dumps(filters))
-            endpoint += f"?filters={filter_string}"
+            query_params.append(f"filters={filter_string}")
+            
+        if query_params:
+            endpoint += "?" + "&".join(query_params)
 
         result = await self._request("GET", endpoint)
 
@@ -405,7 +598,7 @@ class OpenProjectClient:
         Returns:
             Dict: API response containing statuses
         """
-        result = await self._request("GET", "/statuses")
+        result = await self._request("GET", f"/statuses?pageSize={DEFAULT_PAGE_SIZE}")
 
         # Ensure proper response structure
         if "_embedded" not in result:
@@ -422,7 +615,7 @@ class OpenProjectClient:
         Returns:
             Dict: API response containing priorities
         """
-        result = await self._request("GET", "/priorities")
+        result = await self._request("GET", f"/priorities?pageSize={DEFAULT_PAGE_SIZE}")
 
         # Ensure proper response structure
         if "_embedded" not in result:
@@ -527,9 +720,17 @@ class OpenProjectClient:
             Dict: API response containing time entries
         """
         endpoint = "/time_entries"
+        query_params = []
+        
+        # Add page size for large datasets
+        query_params.append(f"pageSize={DEFAULT_PAGE_SIZE}")
+        
         if filters:
             encoded_filters = quote(filters)
-            endpoint += f"?filters={encoded_filters}"
+            query_params.append(f"filters={encoded_filters}")
+            
+        if query_params:
+            endpoint += "?" + "&".join(query_params)
 
         result = await self._request("GET", endpoint)
 
@@ -629,7 +830,7 @@ class OpenProjectClient:
         Returns:
             Dict: API response containing activities
         """
-        result = await self._request("GET", "/time_entries/activities")
+        result = await self._request("GET", f"/time_entry_activities?pageSize={DEFAULT_PAGE_SIZE}")
 
         # Ensure proper response structure
         if "_embedded" not in result:
@@ -650,9 +851,9 @@ class OpenProjectClient:
             Dict: API response containing versions
         """
         if project_id:
-            endpoint = f"/projects/{project_id}/versions"
+            endpoint = f"/projects/{project_id}/versions?pageSize={DEFAULT_PAGE_SIZE}"
         else:
-            endpoint = "/versions"
+            endpoint = f"/versions?pageSize={DEFAULT_PAGE_SIZE}"
 
         result = await self._request("GET", endpoint)
 
@@ -814,7 +1015,7 @@ class OpenProjectClient:
         Returns:
             Dict: API response containing roles
         """
-        result = await self._request("GET", "/roles")
+        result = await self._request("GET", f"/roles?pageSize={DEFAULT_PAGE_SIZE}")
 
         # Ensure proper response structure
         if "_embedded" not in result:
@@ -1002,18 +1203,12 @@ class OpenProjectClient:
         Returns:
             Dict: API response containing child work packages
         """
-        if include_descendants:
-            # Use descendants filter to get all levels
-            filters = json.dumps(
-                [{"descendantsOf": {"operator": "=", "values": [str(parent_id)]}}]
-            )
-        else:
-            # Use parent filter to get direct children only
-            filters = json.dumps(
-                [{"parent": {"operator": "=", "values": [str(parent_id)]}}]
-            )
+        # Use parent filter to get direct children
+        filters = json.dumps(
+            [{"parent": {"operator": "=", "values": [str(parent_id)]}}]
+        )
 
-        endpoint = f"/work_packages?filters={quote(filters)}"
+        endpoint = f"/work_packages?filters={quote(filters)}&pageSize={DEFAULT_PAGE_SIZE}"
         result = await self._request("GET", endpoint)
 
         # Ensure proper response structure
@@ -1021,6 +1216,22 @@ class OpenProjectClient:
             result["_embedded"] = {"elements": []}
         elif "elements" not in result.get("_embedded", {}):
             result["_embedded"]["elements"] = []
+
+        # If descendants requested, recursively fetch children
+        if include_descendants:
+            all_children = result["_embedded"]["elements"].copy()
+            
+            # For each direct child, get its children recursively
+            for child in result["_embedded"]["elements"]:
+                child_id = child.get("id")
+                if child_id:
+                    descendants = await self.list_work_package_children(
+                        child_id, include_descendants=True
+                    )
+                    all_children.extend(descendants["_embedded"]["elements"])
+            
+            result["_embedded"]["elements"] = all_children
+            result["total"] = len(all_children)
 
         return result
 
@@ -1064,9 +1275,17 @@ class OpenProjectClient:
             Dict: API response containing relations
         """
         endpoint = "/relations"
+        query_params = []
+        
+        # Add page size for large datasets
+        query_params.append(f"pageSize={DEFAULT_PAGE_SIZE}")
+        
         if filters:
             encoded_filters = quote(filters)
-            endpoint += f"?filters={encoded_filters}"
+            query_params.append(f"filters={encoded_filters}")
+            
+        if query_params:
+            endpoint += "?" + "&".join(query_params)
 
         result = await self._request("GET", endpoint)
 
@@ -1944,6 +2163,86 @@ class OpenProjectMCPServer:
                         "required": ["relation_id"],
                     },
                 ),
+                Tool(
+                    name="create_comment",
+                    description="Create a comment on a work package",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "work_package_id": {
+                                "type": "integer",
+                                "description": "Work package ID",
+                            },
+                            "comment": {
+                                "type": "string",
+                                "description": "Comment text",
+                            },
+                        },
+                        "required": ["work_package_id", "comment"],
+                    },
+                ),
+                Tool(
+                    name="get_comment",
+                    description="Get comments (comments and changes) for a work package",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "work_package_id": {
+                                "type": "integer",
+                                "description": "Work package ID",
+                            },
+                        },
+                        "required": ["work_package_id"],
+                    },
+                ),
+                Tool(
+                    name="update_comment",
+                    description="Update a comment",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "comment_id": {
+                                "type": "integer",
+                                "description": "Comment ID",
+                            },
+                            "comment": {
+                                "type": "string",
+                                "description": "New comment text",
+                            },
+                        },
+                        "required": ["comment_id", "comment"],
+                    },
+                ),
+                Tool(
+                    name="export_view",
+                    description="Export a user-defined view (query) to XLSX format with columns and filters exactly as shown in web",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query_id": {
+                                "type": "integer",
+                                "description": "Query/View ID to export (optional if query_name provided)",
+                            },
+                            "query_name": {
+                                "type": "string",
+                                "description": "Query/View name to export (optional if query_id provided)",
+                            },
+                            "project_id": {
+                                "type": "integer",
+                                "description": "Project ID to search for view (optional if project_name provided)",
+                            },
+                            "project_name": {
+                                "type": "string",
+                                "description": "Project name to search for view (optional if project_id provided)",
+                            },
+                            "output_file": {
+                                "type": "string",
+                                "description": "Output file path (e.g., /tmp/export.xlsx)",
+                            },
+                        },
+                        "required": ["output_file"],
+                    },
+                ),
             ]
 
         @self.server.call_tool()
@@ -2129,6 +2428,409 @@ class OpenProjectMCPServer:
                         # Default error handling
                         text = f"❌ Failed to create work package: {error_msg}"
                         return [TextContent(type="text", text=text)]
+
+                elif name == "create_comment":
+                    work_package_id = arguments["work_package_id"]
+                    comment = arguments["comment"]
+                    
+                    result = await self.client.create_comment(work_package_id, comment)
+                    
+                    text = f"✅ Comment created successfully on work package #{work_package_id}\n\n"
+                    text += f"- **Comment**: {comment}\n"
+                    if "id" in result:
+                        text += f"- **Comment ID**: {result.get('id', 'N/A')}\n"
+                    if "createdAt" in result:
+                        text += f"- **Created**: {result.get('createdAt', 'N/A')}\n"
+                    
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "get_comment":
+                    work_package_id = arguments["work_package_id"]
+                    result = await self.client.get_comment(work_package_id)
+                    
+                    comments = result.get("_embedded", {}).get("elements", [])
+                    
+                    if not comments:
+                        text = f"No comments found for work package #{work_package_id}."
+                    else:
+                        text = f"Found {len(comments)} comment(s) for work package #{work_package_id}:\n\n"
+                        for comment_item in comments:
+                            text += f"**Comment #{comment_item.get('id', 'N/A')}**\n"
+                            text += f"- **Version**: {comment_item.get('version', 'N/A')}\n"
+                            text += f"- **Created**: {comment_item.get('createdAt', 'N/A')}\n"
+                            
+                            # User information
+                            if "_links" in comment_item and "user" in comment_item["_links"]:
+                                user_link = comment_item["_links"]["user"]
+                                if "title" in user_link:
+                                    text += f"- **User**: {user_link['title']}\n"
+                            
+                            # Comment
+                            if "comment" in comment_item and comment_item["comment"]:
+                                comment_text = comment_item["comment"].get("raw", "")
+                                if comment_text:
+                                    text += f"- **Comment**: {comment_text}\n"
+                            
+                            # Details about changes
+                            if "details" in comment_item and comment_item["details"]:
+                                details = comment_item["details"]
+                                if details:
+                                    text += f"- **Changes**: {len(details)} field(s) modified\n"
+                            
+                            text += "\n"
+                    
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "update_comment":
+                    comment_id = arguments["comment_id"]
+                    comment = arguments["comment"]
+                    
+                    result = await self.client.update_comment(comment_id, comment)
+                    
+                    text = f"✅ Comment #{comment_id} updated successfully\n\n"
+                    text += f"- **New Comment**: {comment}\n"
+                    if "updatedAt" in result:
+                        text += f"- **Updated**: {result.get('updatedAt', 'N/A')}\n"
+                    
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "export_view":
+                    if not OPENPYXL_AVAILABLE:
+                        return [TextContent(
+                            type="text",
+                            text="❌ Error: openpyxl library not installed. Install with: pip install openpyxl"
+                        )]
+                    
+                    query_id = arguments.get("query_id")
+                    query_name = arguments.get("query_name")
+                    project_id = arguments.get("project_id")
+                    project_name = arguments.get("project_name")
+                    output_file = arguments["output_file"]
+                    
+                    # Validate that at least one identifier is provided
+                    if not query_id and not query_name:
+                        return [TextContent(
+                            type="text",
+                            text="❌ Error: Please provide either query_id or query_name"
+                        )]
+                    
+                    try:
+                        # If project_name is provided, search for the project
+                        if project_name and not project_id:
+                            projects_result = await self.client.get_projects()
+                            projects = projects_result.get("_embedded", {}).get("elements", [])
+                            
+                            # Normalize function for robust matching
+                            import re
+                            def normalize_name(s: str) -> str:
+                                """Normalize name: lowercase, strip, collapse whitespace, remove special chars"""
+                                s = s.lower().strip()
+                                s = re.sub(r'\s+', ' ', s)  # Collapse whitespace
+                                s = re.sub(r'[^\w\s-]', '', s)  # Remove special chars except dash
+                                return s
+                            
+                            target_normalized = normalize_name(project_name)
+                            
+                            # 1. Try exact normalized match
+                            matching_project = None
+                            for p in projects:
+                                if normalize_name(p.get("name", "")) == target_normalized:
+                                    matching_project = p
+                                    break
+                            
+                            # 2. Try partial normalized match (contains)
+                            if not matching_project:
+                                for p in projects:
+                                    if target_normalized in normalize_name(p.get("name", "")):
+                                        matching_project = p
+                                        break
+                            
+                            # 3. Try reverse partial match (project name contains search term)
+                            if not matching_project:
+                                for p in projects:
+                                    project_normalized = normalize_name(p.get("name", ""))
+                                    if project_normalized in target_normalized:
+                                        matching_project = p
+                                        break
+                            
+                            if not matching_project:
+                                available = ", ".join([f"'{p.get('name')}' (ID: {p.get('id')})" for p in projects[:10]])
+                                return [TextContent(
+                                    type="text",
+                                    text=f"❌ Error: Project '{project_name}' not found.\n\nAvailable projects: {available}"
+                                )]
+                            
+                            project_id = matching_project.get("id")
+                        
+                        # If query_name is provided, search for the query
+                        if query_name and not query_id:
+                            try:
+                                queries_result = await self.client.get_queries(project_id)
+                                queries = queries_result.get("_embedded", {}).get("elements", [])
+                                
+                                if not queries:
+                                    project_info = f" in project ID {project_id}" if project_id else ""
+                                    return [TextContent(
+                                        type="text",
+                                        text=f"❌ Error: No views/queries found{project_info}. The project might not have any saved views."
+                                    )]
+                                
+                                # Search for matching query by name (case-insensitive)
+                                matching_query = None
+                                for q in queries:
+                                    if q.get("name", "").lower() == query_name.lower():
+                                        matching_query = q
+                                        break
+                                
+                                if not matching_query:
+                                    # Try partial match
+                                    for q in queries:
+                                        if query_name.lower() in q.get("name", "").lower():
+                                            matching_query = q
+                                            break
+                                
+                                if not matching_query:
+                                    available = ", ".join([f"'{q.get('name')}' (ID: {q.get('id')})" for q in queries[:15]])
+                                    project_info = f" in project ID {project_id}" if project_id else ""
+                                    return [TextContent(
+                                        type="text",
+                                        text=f"❌ Error: Query/View '{query_name}' not found{project_info}.\n\nAvailable views ({len(queries)} total): {available}"
+                                    )]
+                                
+                                query_id = matching_query.get("id")
+                            
+                            except Exception as e:
+                                error_msg = str(e)
+                                return [TextContent(
+                                    type="text",
+                                    text=f"❌ Error searching for queries: {error_msg}"
+                                )]
+                        
+                        # Get query details
+                        try:
+                            query = await self.client.get_query(query_id)
+                            query_name = query.get("name", f"Query {query_id}")
+                        except Exception as e:
+                            return [TextContent(
+                                type="text",
+                                text=f"❌ Error getting query details for ID {query_id}: {str(e)}\n\nThe query might be a default system query that doesn't support direct access. Try using a custom saved view instead."
+                            )]
+                        
+                        # Get query results (work packages)
+                        try:
+                            results = await self.client.get_query_results(query_id)
+                            work_packages = results.get("_embedded", {}).get("elements", [])
+                        except Exception as e:
+                            return [TextContent(
+                                type="text",
+                                text=f"❌ Error getting query results for '{query_name}' (ID {query_id}): {str(e)}"
+                            )]
+                        
+                        # Get column configuration from query
+                        columns = query.get("columns", [])
+                        
+                        # Create workbook
+                        wb = Workbook()
+                        ws = wb.active
+                        ws.title = query_name[:31]  # Excel sheet name limit
+                        
+                        # Define column mappings (common columns)
+                        column_mapping = {
+                            "id": "ID",
+                            "subject": "Subject",
+                            "type": "Type",
+                            "status": "Status",
+                            "priority": "Priority",
+                            "assignee": "Assignee",
+                            "author": "Author",
+                            "startDate": "Start Date",
+                            "dueDate": "Finish Date",
+                            "estimatedTime": "Work",
+                            "spentTime": "Spent",
+                            "percentageDone": "Progress (%)",
+                            "createdAt": "Created",
+                            "updatedAt": "Updated",
+                            "project": "Project",
+                            "description": "Description",
+                            "budget": "Budget",
+                            "costObject": "Budget",
+                        }
+                        
+                        # Extract column names
+                        if columns:
+                            column_ids = [col.get("id") or col.get("_links", {}).get("self", {}).get("href", "").split("/")[-1] for col in columns]
+                        else:
+                            # Default columns if not specified
+                            column_ids = ["id", "subject", "type", "status", "assignee", "dueDate"]
+                        
+                        # Ensure essential columns are always included
+                        essential_columns = ["startDate", "dueDate", "estimatedTime", "spentTime", "budget"]
+                        for essential_col in essential_columns:
+                            if essential_col not in column_ids:
+                                column_ids.append(essential_col)
+                        
+                        # Write header row
+                        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+                        header_font = Font(bold=True, color="FFFFFF")
+                        
+                        for col_idx, col_id in enumerate(column_ids, start=1):
+                            cell = ws.cell(row=1, column=col_idx)
+                            cell.value = column_mapping.get(col_id, col_id.title())
+                            cell.fill = header_fill
+                            cell.font = header_font
+                            cell.alignment = Alignment(horizontal="left", vertical="center")
+                        
+                        # Build hierarchy map and reorder work packages
+                        parent_map = {}  # wp_id -> parent_id
+                        children_map = {}  # parent_id -> [child_ids]
+                        wp_map = {}  # wp_id -> work package object
+                        
+                        for wp in work_packages:
+                            wp_id = wp.get("id")
+                            wp_map[wp_id] = wp
+                            
+                            parent_link = wp.get("_links", {}).get("parent", {}).get("href", "")
+                            if parent_link:
+                                parent_id = int(parent_link.split("/")[-1])
+                                parent_map[wp_id] = parent_id
+                                
+                                if parent_id not in children_map:
+                                    children_map[parent_id] = []
+                                children_map[parent_id].append(wp_id)
+                        
+                        # Function to recursively build ordered list with hierarchy
+                        def build_ordered_hierarchy(wp_id, depth=0):
+                            """Recursively build list of (work_package, depth) tuples"""
+                            result = []
+                            if wp_id in wp_map:
+                                result.append((wp_map[wp_id], depth))
+                                # Add children recursively
+                                if wp_id in children_map:
+                                    for child_id in children_map[wp_id]:
+                                        result.extend(build_ordered_hierarchy(child_id, depth + 1))
+                            return result
+                        
+                        # Find root work packages (those without parents in the current result set)
+                        root_ids = []
+                        for wp_id in wp_map.keys():
+                            if wp_id not in parent_map or parent_map[wp_id] not in wp_map:
+                                # This is a root (no parent) or parent is outside this result set
+                                root_ids.append(wp_id)
+                        
+                        # Build ordered list maintaining hierarchy
+                        ordered_work_packages = []
+                        for root_id in root_ids:
+                            ordered_work_packages.extend(build_ordered_hierarchy(root_id, 0))
+                        
+                        # Write data rows with hierarchy support
+                        for row_idx, (wp, indent_level) in enumerate(ordered_work_packages, start=2):
+                            for col_idx, col_id in enumerate(column_ids, start=1):
+                                value = ""
+                                
+                                # Extract value based on column type
+                                if col_id == "id":
+                                    value = wp.get("id", "")
+                                elif col_id == "subject":
+                                    # Add indentation to subject for hierarchy visualization
+                                    subject = wp.get("subject", "")
+                                    if indent_level > 0:
+                                        value = "  " * indent_level + "↳ " + subject
+                                    else:
+                                        value = subject
+                                elif col_id == "description":
+                                    desc = wp.get("description", {})
+                                    if isinstance(desc, dict):
+                                        value = desc.get("raw", "")
+                                    else:
+                                        value = desc or ""
+                                elif col_id in ["startDate", "dueDate", "date"]:
+                                    value = wp.get(col_id, "")
+                                elif col_id == "percentageDone":
+                                    value = wp.get("percentageDone", 0)
+                                elif col_id in ["type", "status", "priority", "assignee", "author", "project"]:
+                                    # Extract from embedded or links
+                                    embedded = wp.get("_embedded", {})
+                                    if col_id in embedded:
+                                        value = embedded[col_id].get("name", "") or embedded[col_id].get("title", "")
+                                    else:
+                                        # Try from _links
+                                        links = wp.get("_links", {})
+                                        if col_id in links:
+                                            value = links[col_id].get("title", "")
+                                elif col_id in ["createdAt", "updatedAt"]:
+                                    value = wp.get(col_id, "")
+                                elif col_id in ["estimatedTime", "spentTime"]:
+                                    time_val = wp.get(col_id, "")
+                                    if time_val and "PT" in str(time_val):
+                                        # Parse ISO duration PT8H to 8h
+                                        value = time_val.replace("PT", "").replace("H", "h")
+                                    else:
+                                        value = time_val or ""
+                                elif col_id == "budget":
+                                    # Budget might be in _links or _embedded
+                                    embedded = wp.get("_embedded", {})
+                                    links = wp.get("_links", {})
+                                    
+                                    # Check various possible locations for budget
+                                    if "budget" in embedded:
+                                        value = embedded["budget"].get("name", "") or embedded["budget"].get("title", "")
+                                    elif "budget" in links:
+                                        value = links["budget"].get("title", "")
+                                    elif "costObject" in embedded:
+                                        # Sometimes called costObject
+                                        value = embedded["costObject"].get("name", "") or embedded["costObject"].get("subject", "")
+                                    elif "costObject" in links:
+                                        value = links["costObject"].get("title", "")
+                                    else:
+                                        # Direct field access
+                                        value = wp.get("budget", "") or wp.get("costObject", "")
+                                elif col_id == "costObject":
+                                    # Explicit cost object handling
+                                    embedded = wp.get("_embedded", {})
+                                    links = wp.get("_links", {})
+                                    if "costObject" in embedded:
+                                        value = embedded["costObject"].get("name", "") or embedded["costObject"].get("subject", "")
+                                    elif "costObject" in links:
+                                        value = links["costObject"].get("title", "")
+                                    else:
+                                        value = wp.get("costObject", "")
+                                else:
+                                    # Generic field access
+                                    value = wp.get(col_id, "")
+                                
+                                cell = ws.cell(row=row_idx, column=col_idx, value=str(value) if value else "")
+                                
+                                # Apply indentation styling for subject column
+                                if col_id == "subject" and indent_level > 0:
+                                    cell.font = Font(italic=True)
+                                    # Light gray background for child items
+                                    cell.fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
+                        
+                        # Auto-adjust column widths
+                        for col_idx, col_id in enumerate(column_ids, start=1):
+                            max_length = len(column_mapping.get(col_id, col_id.title()))
+                            for row_idx in range(2, len(ordered_work_packages) + 2):
+                                cell_value = ws.cell(row=row_idx, column=col_idx).value
+                                if cell_value:
+                                    max_length = max(max_length, len(str(cell_value)[:50]))  # Limit to 50 chars
+                            ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = min(max_length + 2, 50)
+                        
+                        # Save workbook
+                        wb.save(output_file)
+                        
+                        text = f"✅ View exported successfully\n\n"
+                        text += f"- **Query**: {query_name}\n"
+                        text += f"- **Work Packages**: {len(ordered_work_packages)}\n"
+                        text += f"- **Columns**: {len(column_ids)}\n"
+                        text += f"- **Output File**: {output_file}\n"
+                        
+                        return [TextContent(type="text", text=text)]
+                    
+                    except Exception as e:
+                        return [TextContent(
+                            type="text",
+                            text=f"❌ Error exporting view: {str(e)}"
+                        )]
 
                 elif name == "list_users":
                     filters = None
@@ -2373,16 +3075,7 @@ class OpenProjectMCPServer:
                 elif name == "list_time_entries":
                     filters = []
 
-                    # Add filters based on arguments
-                    if "work_package_id" in arguments:
-                        filters.append(
-                            {
-                                "workPackage": {
-                                    "operator": "=",
-                                    "values": [str(arguments["work_package_id"])],
-                                }
-                            }
-                        )
+                    # Only add user filter (work_package filter is not supported by API)
                     if "user_id" in arguments:
                         filters.append(
                             {
@@ -2396,6 +3089,14 @@ class OpenProjectMCPServer:
                     filter_string = json.dumps(filters) if filters else None
                     result = await self.client.get_time_entries(filter_string)
                     time_entries = result.get("_embedded", {}).get("elements", [])
+
+                    # Client-side filtering by work_package_id if provided
+                    if "work_package_id" in arguments:
+                        work_package_id = arguments["work_package_id"]
+                        time_entries = [
+                            entry for entry in time_entries
+                            if entry.get("_links", {}).get("workPackage", {}).get("href", "").endswith(f"/{work_package_id}")
+                        ]
 
                     if not time_entries:
                         text = "No time entries found."

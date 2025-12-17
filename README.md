@@ -8,11 +8,16 @@ A Model Context Protocol (MCP) server that provides seamless integration with [O
 
 - 🔌 **Full OpenProject API v3 Integration**
 - 📋 **Project Management**: List and filter projects
-- 📝 **Work Package Management**: Create, list, and filter work packages
+- 📝 **Work Package Management**: Create, list, and filter work packages with full CRUD operations
+- 💬 **Comment Management**: Create, read, and update comments on work packages
+- 📊 **Query/View System**: Access user-defined views and export query results
+- 📑 **Excel Export**: Export views to XLSX with hierarchical display and styling
 - 🏷️ **Type Management**: List available work package types
 - 🔐 **Secure Authentication**: API key-based authentication
 - 🌐 **Proxy Support**: Optional HTTP proxy configuration
+- 🔒 **SSL Configuration**: Support for self-signed certificates in development
 - 🚀 **Async Operations**: Built with modern async/await patterns
+- 📈 **Enhanced Pagination**: Handle large datasets with configurable page sizes (up to 50,000 items)
 - 📊 **Comprehensive Logging**: Configurable logging levels
 
 ## Prerequisites
@@ -86,11 +91,7 @@ OPENPROJECT_API_KEY=your-api-key-here
 | `OPENPROJECT_URL` | Yes | Your OpenProject instance URL | `https://mycompany.openproject.com` |
 | `OPENPROJECT_API_KEY` | Yes | API key from your OpenProject user profile | `8169846b42461e6e...` |
 | `OPENPROJECT_PROXY` | No | HTTP proxy URL if needed | `http://proxy.company.com:8080` |
-| `LOG_LEVEL` | No | Logging level (DEBUG, INFO, WARNING, ERROR) | `INFO` |
-| `TEST_CONNECTION_ON_STARTUP` | No | Test API connection when server starts | `true` |
-
-### Getting an API Key
-
+| `OPENPROJECT_VERIFY_SSL` | No | Verify SSL certificates (set to `false` for self-signed certs) | `true` |
 1. Log in to your OpenProject instance
 2. Go to **My account** (click your avatar)
 3. Navigate to **Access tokens**
@@ -499,6 +500,63 @@ Get detailed information about a specific work package relation.
 **Parameters:**
 - `relation_id` (integer, required): Relation ID
 
+#### 41. `create_comment`
+Create a comment on a work package.
+
+**Parameters:**
+- `work_package_id` (integer, required): Work package ID
+- `comment` (string, required): Comment text (Markdown supported)
+
+**Example:**
+```
+Add a comment to work package 15 saying "Updated requirements based on client feedback"
+```
+
+#### 42. `get_comment`
+Get all comments and activity history for a work package.
+
+**Parameters:**
+- `work_package_id` (integer, required): Work package ID
+
+**Example:**
+```
+Get all comments and activity for work package 15
+```
+
+#### 43. `update_comment`
+Update an existing comment.
+
+**Parameters:**
+- `comment_id` (integer, required): Comment ID
+- `comment` (string, required): New comment text
+
+**Example:**
+```
+Update comment 123 with text "Revised: Updated requirements based on client feedback"
+```
+
+#### 44. `export_view`
+Export a user-defined view (query) to XLSX format with columns and filters as shown in the web interface.
+
+**Parameters:**
+- `output_file` (string, required): Output file path (e.g., `/tmp/export.xlsx`)
+- `query_id` (integer, optional): Query/View ID to export (optional if query_name provided)
+- `query_name` (string, optional): Query/View name to export (optional if query_id provided)
+- `project_id` (integer, optional): Project ID to search for view (optional if project_name provided)
+- `project_name` (string, optional): Project name to search for view (optional if project_id provided)
+
+**Example:**
+```
+Export the "Sprint Backlog" view from project 5 to /tmp/backlog.xlsx
+```
+
+**Features:**
+- Hierarchical work package display with visual indentation
+- Automatic column width adjustment based on content
+- Styled headers matching OpenProject branding
+- Support for all standard columns including budget and cost objects
+- Requires `openpyxl` dependency (installed automatically)
+
 ## Development
 
 ### Setting up Development Environment
@@ -542,7 +600,7 @@ uv sync
 
 ## Tool Compatibility & Test Results
 
-### ✅ Fully Working Tools (39/41)
+### ✅ Fully Working Tools (43/44)
 All these tools have been tested and work correctly with admin privileges:
 
 **Core Project Management:**
@@ -552,6 +610,12 @@ All these tools have been tested and work correctly with admin privileges:
 **Work Package Management:**
 - `list_work_packages`, `list_types`, `create_work_package`, `update_work_package`
 - `delete_work_package`, `get_work_package`, `list_statuses`, `list_priorities`
+
+**Comment Management:**
+- `create_comment`, `get_comment`, `update_comment`
+
+**Query/View System & Export:**
+- `export_view`
 
 **Work Package Hierarchy & Relations:**
 - `set_work_package_parent`, `remove_work_package_parent`, `list_work_package_children`
@@ -593,6 +657,53 @@ Most create/update/delete operations require appropriate permissions:
 
 Use the `check_permissions` tool to diagnose permission-related issues.
 
+## Changelog
+
+### Version 1.0.1 (December 16, 2025)
+
+**New Features:**
+- **Comment Management**: Create, read, and update comments on work packages
+  - `create_comment`: Post comments with Markdown support
+  - `get_comment`: Retrieve all comments and activity history
+  - `update_comment`: Modify existing comments
+
+- **Excel Export**: Export query results to XLSX format
+  - `export_view`: Export user-defined views with hierarchical display
+  - Visual indentation for parent-child relationships
+  - Automatic column width adjustment
+  - Styled headers with OpenProject branding
+  - Support for budget and cost object columns
+  - Optional `openpyxl` dependency with graceful degradation
+
+- **Enhanced Pagination**: Handle large datasets efficiently
+  - Increased default page size to 50,000 items
+  - Applied to all list operations (projects, users, work packages, etc.)
+  - Prevents data truncation in large OpenProject instances
+
+- **SSL Configuration**: Flexible SSL/TLS handling
+  - `OPENPROJECT_VERIFY_SSL` environment variable
+  - Support for self-signed certificates in development
+  - Security warnings when verification is disabled
+
+**Bug Fixes:**
+- Fixed `list_work_package_children` with `include_descendants=true`
+  - Replaced unsupported `descendantsOf` filter with recursive approach
+  - Now correctly fetches all descendant levels
+  - Maintains backward compatibility for direct children queries
+
+- Fixed time entry filtering
+  - Moved work_package_id filtering to client-side
+  - Improved filtering reliability
+
+**Improvements:**
+- Better error messages for query operations
+- Enhanced validation in export operations
+- Consistent response structure handling across all endpoints
+- Added openpyxl>=3.0.0 dependency for Excel export
+
+**Contributors:**
+- Rafael Medina (rafael_medina@epamneoris.com)
+
 ## Troubleshooting
 
 ### Connection Issues
@@ -601,6 +712,7 @@ Use the `check_permissions` tool to diagnose permission-related issues.
 2. **403 Forbidden**: Ensure your user has the necessary permissions
 3. **404 Not Found**: Verify the OpenProject URL and that resources exist
 4. **Proxy Errors**: Check proxy settings and authentication
+5. **SSL Certificate Errors**: Set `OPENPROJECT_VERIFY_SSL=false` for self-signed certificates (development only)
 
 ### Debug Mode
 
