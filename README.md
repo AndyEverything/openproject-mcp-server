@@ -193,6 +193,40 @@ Add this configuration to your Claude Desktop config file:
 }
 ```
 
+## Important Deployment Notes
+
+### Reverse Proxy / Authentication Gateway Compatibility
+
+If your OpenProject instance is behind a reverse proxy with authentication (like Authelia, Authentik, etc.), you need to ensure API endpoints are accessible:
+
+**Problem:** Authentication gateways may intercept API requests and redirect to login pages, breaking API token authentication.
+
+**Solution:** Configure your reverse proxy to bypass authentication for `/api/` paths, allowing OpenProject's own API authentication to work:
+
+**Example (Traefik + Authelia):**
+```yaml
+http:
+  routers:
+    openproject-api:
+      rule: "Host(`projects.example.com`) && PathPrefix(`/api/`)"
+      service: openproject
+      priority: 100  # Higher priority to match before main route
+      # No Authelia middleware - OpenProject handles API auth
+```
+
+This allows:
+- Web UI requests → Authenticated via your gateway (2FA, SSO, etc.)
+- API requests → Authenticated via OpenProject API keys
+
+### Authentication Format
+
+OpenProject uses HTTP Basic Authentication for API access:
+- **Username:** `apikey`
+- **Password:** Your API key
+- **Format:** `Authorization: Basic base64(apikey:YOUR_API_KEY)`
+
+The MCP server handles this automatically - just provide your API key in the environment variable.
+
 ### Available Tools
 
 #### 1. `test_connection`
