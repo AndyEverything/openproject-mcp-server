@@ -28,13 +28,16 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync --frozen --all-extras
+        run: uv sync --frozen --dev
 
-      - name: Check formatting with Black
-        run: uv run black --check .
+      - name: Lint and format check with Ruff
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
 
-      - name: Lint with Flake8
-        run: uv run flake8 .
+      - name: Type check with mypy
+        run: uv run mypy openproject_mcp.py
+        continue-on-error: true  # Report issues but don't fail build
 
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -58,7 +61,7 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --frozen --all-extras
+        run: uv sync --frozen --dev
 
       - name: Create junit directory
         run: mkdir -p junit

@@ -54,7 +54,9 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Publish to PyPI
-        run: uv publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          attestations: true
 
   create-release:
     name: Create GitHub Release

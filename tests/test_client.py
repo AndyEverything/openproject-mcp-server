@@ -29,7 +29,5 @@ def test_client_with_proxy():
     """Test that proxy configuration is accepted."""
     from openproject_mcp import OpenProjectClient
 
-    client = OpenProjectClient(
-        "https://test.example.com", "test-key", proxy="http://proxy:8080"
-    )
+    client = OpenProjectClient("https://test.example.com", "test-key", proxy="http://proxy:8080")
     assert client.proxy == "http://proxy:8080"
