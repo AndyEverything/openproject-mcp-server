@@ -44,10 +44,10 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync --frozen --dev
+        run: uv sync --frozen --all-extras
 
       - name: Generate SBOM
-        run: uv run cyclonedx-py --format json --output sbom.json
+        run: uv run cyclonedx-py environment -o sbom.json --of json
 
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
