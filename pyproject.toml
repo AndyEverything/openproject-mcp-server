@@ -1,9 +1,10 @@
 [project]
-name = "openproject-mcp-server"
-version = "1.0.0"
+name = "openproject-mcp"
+version = "1.0.2"
 description = "A Model Context Protocol (MCP) server for OpenProject API v3 integration"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "cleanspin"},
+    {name = "AndyEverything"}
 ]
 readme = "README.md"
 license = {text = "MIT"}
@@ -17,6 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
 dependencies = [
@@ -26,21 +28,42 @@ dependencies = [
     "certifi>=2022.0.0",
 ]
 
+[project.scripts]
+openproject-mcp = "openproject_mcp:cli_entry"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
-    "black>=22.0.0",
-    "flake8>=4.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "cyclonedx-bom>=4.0.0",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.black]
-line-length = 88
-target-version = ['py38']
+[tool.hatch.build.targets.wheel]
+packages = ["."]
 
-[tool.flake8]
-max-line-length = 88
-extend-ignore = ["E203", "W503"]
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E203", "E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[dependency-groups]
+dev = [
+    "cyclonedx-bom>=7.2.1",
+    "mypy>=1.19.1",
+    "pytest>=9.0.2",
+    "ruff>=0.14.10",
+]

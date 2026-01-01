@@ -7,22 +7,21 @@ Supports project management, work package tracking, and task creation through a
 standardized interface.
 """
 
-import os
+import asyncio
+import base64
 import json
 import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime
-import asyncio
-import aiohttp
-from urllib.parse import quote
-import base64
+import os
 import ssl
-from dotenv import load_dotenv
+from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
+import aiohttp
+from dotenv import load_dotenv
 from mcp.server import Server
 from mcp.types import (
-    Tool,
     TextContent,
+    Tool,
 )
 
 # Load environment variables
@@ -36,7 +35,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Version information
-__version__ = "1.0.0"
+__version__ = "1.0.2"
 __author__ = "Your Name"
 __license__ = "MIT"
 
@@ -74,9 +73,7 @@ class OpenProjectClient:
         credentials = f"apikey:{self.api_key}"
         return base64.b64encode(credentials.encode()).decode()
 
-    async def _request(
-        self, method: str, endpoint: str, data: Optional[Dict] = None
-    ) -> Dict:
+    async def _request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict:
         """
         Execute an API request.
 
@@ -102,9 +99,7 @@ class OpenProjectClient:
         connector = aiohttp.TCPConnector(ssl=ssl_context)
         timeout = aiohttp.ClientTimeout(total=30)
 
-        async with aiohttp.ClientSession(
-            connector=connector, timeout=timeout
-        ) as session:
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             try:
                 # Build request parameters
                 request_params = {
@@ -125,18 +120,14 @@ class OpenProjectClient:
 
                     # Parse response
                     try:
-                        response_json = (
-                            json.loads(response_text) if response_text else {}
-                        )
+                        response_json = json.loads(response_text) if response_text else {}
                     except json.JSONDecodeError:
                         logger.error(f"Invalid JSON response: {response_text[:200]}...")
                         response_json = {}
 
                     # Handle errors
                     if response.status >= 400:
-                        error_msg = self._format_error_message(
-                            response.status, response_text
-                        )
+                        error_msg = self._format_error_message(response.status, response_text)
                         raise Exception(error_msg)
 
                     return response_json
@@ -256,9 +247,7 @@ class OpenProjectClient:
 
         # Set required links
         if "project" in data:
-            form_payload["_links"]["project"] = {
-                "href": f"/api/v3/projects/{data['project']}"
-            }
+            form_payload["_links"]["project"] = {"href": f"/api/v3/projects/{data['project']}"}
         if "type" in data:
             form_payload["_links"]["type"] = {"href": f"/api/v3/types/{data['type']}"}
 
@@ -279,15 +268,11 @@ class OpenProjectClient:
         if "priority_id" in data:
             if "_links" not in payload:
                 payload["_links"] = {}
-            payload["_links"]["priority"] = {
-                "href": f"/api/v3/priorities/{data['priority_id']}"
-            }
+            payload["_links"]["priority"] = {"href": f"/api/v3/priorities/{data['priority_id']}"}
         if "assignee_id" in data:
             if "_links" not in payload:
                 payload["_links"] = {}
-            payload["_links"]["assignee"] = {
-                "href": f"/api/v3/users/{data['assignee_id']}"
-            }
+            payload["_links"]["assignee"] = {"href": f"/api/v3/users/{data['assignee_id']}"}
 
         # Add date fields (ISO 8601 format: YYYY-MM-DD)
         if "startDate" in data:
@@ -362,9 +347,7 @@ class OpenProjectClient:
         """
         return await self._request("GET", f"/users/{user_id}")
 
-    async def get_memberships(
-        self, project_id: Optional[int] = None, user_id: Optional[int] = None
-    ) -> Dict:
+    async def get_memberships(self, project_id: Optional[int] = None, user_id: Optional[int] = None) -> Dict:
         """
         Retrieve memberships.
 
@@ -473,21 +456,15 @@ class OpenProjectClient:
         if "status_id" in data:
             if "_links" not in payload:
                 payload["_links"] = {}
-            payload["_links"]["status"] = {
-                "href": f"/api/v3/statuses/{data['status_id']}"
-            }
+            payload["_links"]["status"] = {"href": f"/api/v3/statuses/{data['status_id']}"}
         if "priority_id" in data:
             if "_links" not in payload:
                 payload["_links"] = {}
-            payload["_links"]["priority"] = {
-                "href": f"/api/v3/priorities/{data['priority_id']}"
-            }
+            payload["_links"]["priority"] = {"href": f"/api/v3/priorities/{data['priority_id']}"}
         if "assignee_id" in data:
             if "_links" not in payload:
                 payload["_links"] = {}
-            payload["_links"]["assignee"] = {
-                "href": f"/api/v3/users/{data['assignee_id']}"
-            }
+            payload["_links"]["assignee"] = {"href": f"/api/v3/users/{data['assignee_id']}"}
         if "percentage_done" in data:
             payload["percentageDone"] = data["percentage_done"]
 
@@ -499,9 +476,7 @@ class OpenProjectClient:
         if "date" in data:
             payload["date"] = data["date"]
 
-        return await self._request(
-            "PATCH", f"/work_packages/{work_package_id}", payload
-        )
+        return await self._request("PATCH", f"/work_packages/{work_package_id}", payload)
 
     async def delete_work_package(self, work_package_id: int) -> bool:
         """
@@ -556,11 +531,7 @@ class OpenProjectClient:
 
         # Set required fields
         if "work_package_id" in data:
-            payload["_links"] = {
-                "workPackage": {
-                    "href": f"/api/v3/work_packages/{data['work_package_id']}"
-                }
-            }
+            payload["_links"] = {"workPackage": {"href": f"/api/v3/work_packages/{data['work_package_id']}"}}
         if "hours" in data:
             payload["hours"] = f"PT{data['hours']}H"
         if "spent_on" in data:
@@ -570,9 +541,7 @@ class OpenProjectClient:
         if "activity_id" in data:
             if "_links" not in payload:
                 payload["_links"] = {}
-            payload["_links"]["activity"] = {
-                "href": f"/api/v3/time_entries/activities/{data['activity_id']}"
-            }
+            payload["_links"]["activity"] = {"href": f"/api/v3/time_entries/activities/{data['activity_id']}"}
 
         return await self._request("POST", "/time_entries", payload)
 
@@ -603,9 +572,7 @@ class OpenProjectClient:
         if "activity_id" in data:
             if "_links" not in payload:
                 payload["_links"] = {}
-            payload["_links"]["activity"] = {
-                "href": f"/api/v3/time_entries/activities/{data['activity_id']}"
-            }
+            payload["_links"]["activity"] = {"href": f"/api/v3/time_entries/activities/{data['activity_id']}"}
 
         return await self._request("PATCH", f"/time_entries/{time_entry_id}", payload)
 
@@ -676,9 +643,7 @@ class OpenProjectClient:
             Dict: Created version data
         """
         # Prepare payload
-        payload = {
-            "_links": {"definingProject": {"href": f"/api/v3/projects/{project_id}"}}
-        }
+        payload = {"_links": {"definingProject": {"href": f"/api/v3/projects/{project_id}"}}}
 
         # Set required fields
         if "name" in data:
@@ -735,9 +700,7 @@ class OpenProjectClient:
         if "parent_id" in data:
             if "_links" not in payload:
                 payload["_links"] = {}
-            payload["_links"]["parent"] = {
-                "href": f"/api/v3/projects/{data['parent_id']}"
-            }
+            payload["_links"]["parent"] = {"href": f"/api/v3/projects/{data['parent_id']}"}
 
         return await self._request("POST", "/projects", payload)
 
@@ -756,7 +719,7 @@ class OpenProjectClient:
         try:
             current_project = await self.get_project(project_id)
             lock_version = current_project.get("lockVersion", 0)
-        except:
+        except Exception:
             lock_version = 0
 
         # Prepare payload with lock version
@@ -776,9 +739,7 @@ class OpenProjectClient:
         if "parent_id" in data:
             if "_links" not in payload:
                 payload["_links"] = {}
-            payload["_links"]["parent"] = {
-                "href": f"/api/v3/projects/{data['parent_id']}"
-            }
+            payload["_links"]["parent"] = {"href": f"/api/v3/projects/{data['parent_id']}"}
 
         return await self._request("PATCH", f"/projects/{project_id}", payload)
 
@@ -851,21 +812,13 @@ class OpenProjectClient:
 
         # Set required fields
         if "project_id" in data:
-            payload["_links"]["project"] = {
-                "href": f"/api/v3/projects/{data['project_id']}"
-            }
+            payload["_links"]["project"] = {"href": f"/api/v3/projects/{data['project_id']}"}
         if "user_id" in data:
-            payload["_links"]["principal"] = {
-                "href": f"/api/v3/users/{data['user_id']}"
-            }
+            payload["_links"]["principal"] = {"href": f"/api/v3/users/{data['user_id']}"}
         elif "group_id" in data:
-            payload["_links"]["principal"] = {
-                "href": f"/api/v3/groups/{data['group_id']}"
-            }
+            payload["_links"]["principal"] = {"href": f"/api/v3/groups/{data['group_id']}"}
         if "role_ids" in data:
-            payload["_links"]["roles"] = [
-                {"href": f"/api/v3/roles/{role_id}"} for role_id in data["role_ids"]
-            ]
+            payload["_links"]["roles"] = [{"href": f"/api/v3/roles/{role_id}"} for role_id in data["role_ids"]]
         elif "role_id" in data:
             payload["_links"]["roles"] = [{"href": f"/api/v3/roles/{data['role_id']}"}]
         if "notification_message" in data:
@@ -888,7 +841,7 @@ class OpenProjectClient:
         try:
             current_membership = await self.get_membership(membership_id)
             lock_version = current_membership.get("lockVersion", 0)
-        except:
+        except Exception:
             lock_version = 0
 
         # Prepare payload with lock version
@@ -898,9 +851,7 @@ class OpenProjectClient:
         if "role_ids" in data:
             if "_links" not in payload:
                 payload["_links"] = {}
-            payload["_links"]["roles"] = [
-                {"href": f"/api/v3/roles/{role_id}"} for role_id in data["role_ids"]
-            ]
+            payload["_links"]["roles"] = [{"href": f"/api/v3/roles/{role_id}"} for role_id in data["role_ids"]]
         elif "role_id" in data:
             if "_links" not in payload:
                 payload["_links"] = {}
@@ -935,9 +886,7 @@ class OpenProjectClient:
         """
         return await self._request("GET", f"/memberships/{membership_id}")
 
-    async def set_work_package_parent(
-        self, work_package_id: int, parent_id: int
-    ) -> Dict:
+    async def set_work_package_parent(self, work_package_id: int, parent_id: int) -> Dict:
         """
         Set a parent for a work package (create parent-child relationship).
 
@@ -952,7 +901,7 @@ class OpenProjectClient:
         try:
             current_wp = await self.get_work_package(work_package_id)
             lock_version = current_wp.get("lockVersion", 0)
-        except:
+        except Exception:
             lock_version = 0
 
         # Prepare payload with parent link
@@ -961,9 +910,7 @@ class OpenProjectClient:
             "_links": {"parent": {"href": f"/api/v3/work_packages/{parent_id}"}},
         }
 
-        return await self._request(
-            "PATCH", f"/work_packages/{work_package_id}", payload
-        )
+        return await self._request("PATCH", f"/work_packages/{work_package_id}", payload)
 
     async def remove_work_package_parent(self, work_package_id: int) -> Dict:
         """
@@ -979,19 +926,15 @@ class OpenProjectClient:
         try:
             current_wp = await self.get_work_package(work_package_id)
             lock_version = current_wp.get("lockVersion", 0)
-        except:
+        except Exception:
             lock_version = 0
 
         # Prepare payload with null parent link
         payload = {"lockVersion": lock_version, "_links": {"parent": None}}
 
-        return await self._request(
-            "PATCH", f"/work_packages/{work_package_id}", payload
-        )
+        return await self._request("PATCH", f"/work_packages/{work_package_id}", payload)
 
-    async def list_work_package_children(
-        self, parent_id: int, include_descendants: bool = False
-    ) -> Dict:
+    async def list_work_package_children(self, parent_id: int, include_descendants: bool = False) -> Dict:
         """
         List all child work packages of a parent.
 
@@ -1004,14 +947,10 @@ class OpenProjectClient:
         """
         if include_descendants:
             # Use descendants filter to get all levels
-            filters = json.dumps(
-                [{"descendantsOf": {"operator": "=", "values": [str(parent_id)]}}]
-            )
+            filters = json.dumps([{"descendantsOf": {"operator": "=", "values": [str(parent_id)]}}])
         else:
             # Use parent filter to get direct children only
-            filters = json.dumps(
-                [{"parent": {"operator": "=", "values": [str(parent_id)]}}]
-            )
+            filters = json.dumps([{"parent": {"operator": "=", "values": [str(parent_id)]}}])
 
         endpoint = f"/work_packages?filters={quote(filters)}"
         result = await self._request("GET", endpoint)
@@ -1039,9 +978,7 @@ class OpenProjectClient:
 
         # Set required fields
         if "from_id" in data:
-            payload["_links"]["from"] = {
-                "href": f"/api/v3/work_packages/{data['from_id']}"
-            }
+            payload["_links"]["from"] = {"href": f"/api/v3/work_packages/{data['from_id']}"}
         if "to_id" in data:
             payload["_links"]["to"] = {"href": f"/api/v3/work_packages/{data['to_id']}"}
         if "relation_type" in data:
@@ -1093,7 +1030,7 @@ class OpenProjectClient:
         try:
             current_relation = await self.get_work_package_relation(relation_id)
             lock_version = current_relation.get("lockVersion", 0)
-        except:
+        except Exception:
             lock_version = 0
 
         # Prepare payload with lock version
@@ -1274,9 +1211,7 @@ class OpenProjectMCPServer:
                     description="Get detailed information about a specific user",
                     inputSchema={
                         "type": "object",
-                        "properties": {
-                            "user_id": {"type": "integer", "description": "User ID"}
-                        },
+                        "properties": {"user_id": {"type": "integer", "description": "User ID"}},
                         "required": ["user_id"],
                     },
                 ),
@@ -1740,9 +1675,7 @@ class OpenProjectMCPServer:
                     description="List all projects a specific user is assigned to",
                     inputSchema={
                         "type": "object",
-                        "properties": {
-                            "user_id": {"type": "integer", "description": "User ID"}
-                        },
+                        "properties": {"user_id": {"type": "integer", "description": "User ID"}},
                         "required": ["user_id"],
                     },
                 ),
@@ -1756,9 +1689,7 @@ class OpenProjectMCPServer:
                     description="Get detailed information about a specific role",
                     inputSchema={
                         "type": "object",
-                        "properties": {
-                            "role_id": {"type": "integer", "description": "Role ID"}
-                        },
+                        "properties": {"role_id": {"type": "integer", "description": "Role ID"}},
                         "required": ["role_id"],
                     },
                 ),
@@ -1974,9 +1905,7 @@ class OpenProjectMCPServer:
                 elif name == "list_projects":
                     filters = None
                     if arguments.get("active_only", True):
-                        filters = json.dumps(
-                            [{"active": {"operator": "=", "values": ["t"]}}]
-                        )
+                        filters = json.dumps([{"active": {"operator": "=", "values": ["t"]}}])
 
                     result = await self.client.get_projects(filters)
                     projects = result.get("_embedded", {}).get("elements", [])
@@ -2002,17 +1931,11 @@ class OpenProjectMCPServer:
 
                     filters = None
                     if status == "open":
-                        filters = json.dumps(
-                            [{"status_id": {"operator": "o", "values": None}}]
-                        )
+                        filters = json.dumps([{"status_id": {"operator": "o", "values": None}}])
                     elif status == "closed":
-                        filters = json.dumps(
-                            [{"status_id": {"operator": "c", "values": None}}]
-                        )
+                        filters = json.dumps([{"status_id": {"operator": "c", "values": None}}])
 
-                    result = await self.client.get_work_packages(
-                        project_id, filters, offset, page_size
-                    )
+                    result = await self.client.get_work_packages(project_id, filters, offset, page_size)
                     work_packages = result.get("_embedded", {}).get("elements", [])
 
                     # Get pagination info from result
@@ -2092,7 +2015,7 @@ class OpenProjectMCPServer:
 
                         result = await self.client.create_work_package(data)
 
-                        text = f"✅ Work package created successfully:\n\n"
+                        text = "✅ Work package created successfully:\n\n"
                         text += f"- **Title**: {result.get('subject', 'N/A')}\n"
                         text += f"- **ID**: #{result.get('id', 'N/A')}\n"
 
@@ -2113,7 +2036,7 @@ class OpenProjectMCPServer:
                             # Check user permissions for better error message
                             try:
                                 user_info = await self.client.check_permissions()
-                                text = f"❌ Permission Error: Cannot create work packages.\n\n"
+                                text = "❌ Permission Error: Cannot create work packages.\n\n"
                                 text += f"**Current User**: {user_info.get('name', 'Unknown')}\n"
                                 text += f"**Admin**: {'Yes' if user_info.get('admin') else 'No'}\n\n"
                                 text += "**Possible Solutions:**\n"
@@ -2123,7 +2046,7 @@ class OpenProjectMCPServer:
                                 text += f"4. Verify project ID {arguments['project_id']} exists and you have access\n\n"
                                 text += f"**Technical Error**: {error_msg}"
                                 return [TextContent(type="text", text=text)]
-                            except:
+                            except Exception:
                                 pass
 
                         # Default error handling
@@ -2133,9 +2056,7 @@ class OpenProjectMCPServer:
                 elif name == "list_users":
                     filters = None
                     if arguments.get("active_only", True):
-                        filters = json.dumps(
-                            [{"status": {"operator": "=", "values": ["active"]}}]
-                        )
+                        filters = json.dumps([{"status": {"operator": "=", "values": ["active"]}}])
 
                     result = await self.client.get_users(filters)
                     users = result.get("_embedded", {}).get("elements", [])
@@ -2158,7 +2079,7 @@ class OpenProjectMCPServer:
                     user_id = arguments["user_id"]
                     result = await self.client.get_user(user_id)
 
-                    text = f"**User Details:**\n\n"
+                    text = "**User Details:**\n\n"
                     text += f"- **Name**: {result.get('name', 'N/A')}\n"
                     text += f"- **ID**: {result.get('id', 'N/A')}\n"
                     text += f"- **Email**: {result.get('email', 'N/A')}\n"
@@ -2184,11 +2105,7 @@ class OpenProjectMCPServer:
                                 filter_info.append(f"project {project_id}")
                             if user_id:
                                 filter_info.append(f"user {user_id}")
-                            filter_text = (
-                                f" for {' and '.join(filter_info)}"
-                                if filter_info
-                                else ""
-                            )
+                            filter_text = f" for {' and '.join(filter_info)}" if filter_info else ""
                             text = f"No memberships found{filter_text}."
                         else:
                             filter_info = []
@@ -2196,9 +2113,7 @@ class OpenProjectMCPServer:
                                 filter_info.append(f"project {project_id}")
                             if user_id:
                                 filter_info.append(f"user {user_id}")
-                            filter_text = (
-                                f" ({' and '.join(filter_info)})" if filter_info else ""
-                            )
+                            filter_text = f" ({' and '.join(filter_info)})" if filter_info else ""
 
                             text = f"Found {len(memberships)} membership(s){filter_text}:\n\n"
                             for membership in memberships:
@@ -2211,10 +2126,7 @@ class OpenProjectMCPServer:
                                     if "project" in embedded:
                                         text += f"  Project: {embedded['project'].get('name', 'Unknown')}\n"
                                     if "roles" in embedded:
-                                        roles = [
-                                            role.get("name", "Unknown")
-                                            for role in embedded["roles"]
-                                        ]
+                                        roles = [role.get("name", "Unknown") for role in embedded["roles"]]
                                         text += f"  Roles: {', '.join(roles)}\n"
                                 text += "\n"
 
@@ -2223,7 +2135,7 @@ class OpenProjectMCPServer:
                     except Exception as e:
                         error_msg = str(e)
                         if user_id and "user_id" in arguments:
-                            text = f"⚠️ User ID filtering may not be supported in this OpenProject instance.\n\n"
+                            text = "⚠️ User ID filtering may not be supported in this OpenProject instance.\n\n"
                             text += f"**Error with user_id={user_id}**: {error_msg}\n\n"
                             text += "**Workaround**: Try using `list_memberships` without user_id filter, then manually filter results.\n\n"
                             text += "**Alternative**: Use `list_users` to get user details, then check individual project memberships."
@@ -2274,7 +2186,7 @@ class OpenProjectMCPServer:
                     work_package_id = arguments["work_package_id"]
                     result = await self.client.get_work_package(work_package_id)
 
-                    text = f"**Work Package Details:**\n\n"
+                    text = "**Work Package Details:**\n\n"
                     text += f"- **ID**: #{result.get('id', 'N/A')}\n"
                     text += f"- **Subject**: {result.get('subject', 'N/A')}\n"
                     text += f"- **Progress**: {result.get('percentageDone', 0)}%\n"
@@ -2294,7 +2206,7 @@ class OpenProjectMCPServer:
                         if "assignee" in embedded and embedded["assignee"]:
                             text += f"- **Assignee**: {embedded['assignee'].get('name', 'Unassigned')}\n"
                         else:
-                            text += f"- **Assignee**: Unassigned\n"
+                            text += "- **Assignee**: Unassigned\n"
 
                     if result.get("description", {}).get("raw"):
                         text += f"\n**Description:**\n{result['description']['raw']}\n"
@@ -2327,19 +2239,11 @@ class OpenProjectMCPServer:
                         update_data["date"] = arguments["date"]
 
                     if not update_data:
-                        return [
-                            TextContent(
-                                type="text", text="❌ No fields provided to update."
-                            )
-                        ]
+                        return [TextContent(type="text", text="❌ No fields provided to update.")]
 
-                    result = await self.client.update_work_package(
-                        work_package_id, update_data
-                    )
+                    result = await self.client.update_work_package(work_package_id, update_data)
 
-                    text = (
-                        f"✅ Work package #{work_package_id} updated successfully:\n\n"
-                    )
+                    text = f"✅ Work package #{work_package_id} updated successfully:\n\n"
                     text += f"- **Subject**: {result.get('subject', 'N/A')}\n"
                     text += f"- **Progress**: {result.get('percentageDone', 0)}%\n"
 
@@ -2362,9 +2266,7 @@ class OpenProjectMCPServer:
                     success = await self.client.delete_work_package(work_package_id)
 
                     if success:
-                        text = (
-                            f"✅ Work package #{work_package_id} deleted successfully."
-                        )
+                        text = f"✅ Work package #{work_package_id} deleted successfully."
                     else:
                         text = f"❌ Failed to delete work package #{work_package_id}."
 
@@ -2404,11 +2306,7 @@ class OpenProjectMCPServer:
                         for entry in time_entries:
                             # Parse hours from ISO duration format (PT2.5H)
                             hours_str = entry.get("hours", "PT0H")
-                            hours = (
-                                hours_str.replace("PT", "").replace("H", "")
-                                if "PT" in hours_str
-                                else "0"
-                            )
+                            hours = hours_str.replace("PT", "").replace("H", "") if "PT" in hours_str else "0"
 
                             text += f"- **Time Entry #{entry.get('id', 'N/A')}**\n"
                             text += f"  Hours: {hours}\n"
@@ -2445,13 +2343,9 @@ class OpenProjectMCPServer:
 
                     # Parse hours from ISO duration format
                     hours_str = result.get("hours", "PT0H")
-                    hours = (
-                        hours_str.replace("PT", "").replace("H", "")
-                        if "PT" in hours_str
-                        else "0"
-                    )
+                    hours = hours_str.replace("PT", "").replace("H", "") if "PT" in hours_str else "0"
 
-                    text = f"✅ Time entry created successfully:\n\n"
+                    text = "✅ Time entry created successfully:\n\n"
                     text += f"- **ID**: #{result.get('id', 'N/A')}\n"
                     text += f"- **Hours**: {hours}\n"
                     text += f"- **Date**: {result.get('spentOn', 'N/A')}\n"
@@ -2475,23 +2369,13 @@ class OpenProjectMCPServer:
                             update_data[field] = arguments[field]
 
                     if not update_data:
-                        return [
-                            TextContent(
-                                type="text", text="❌ No fields provided to update."
-                            )
-                        ]
+                        return [TextContent(type="text", text="❌ No fields provided to update.")]
 
-                    result = await self.client.update_time_entry(
-                        time_entry_id, update_data
-                    )
+                    result = await self.client.update_time_entry(time_entry_id, update_data)
 
                     # Parse hours from ISO duration format
                     hours_str = result.get("hours", "PT0H")
-                    hours = (
-                        hours_str.replace("PT", "").replace("H", "")
-                        if "PT" in hours_str
-                        else "0"
-                    )
+                    hours = hours_str.replace("PT", "").replace("H", "") if "PT" in hours_str else "0"
 
                     text = f"✅ Time entry #{time_entry_id} updated successfully:\n\n"
                     text += f"- **Hours**: {hours}\n"
@@ -2539,10 +2423,10 @@ class OpenProjectMCPServer:
                         error_msg = str(e)
                         if "404" in error_msg:
                             # Provide fallback with discovered activity IDs
-                            text = "⚠️ Time entry activities endpoint not available, but activities can still be used!\n\n"
-                            text += (
-                                "**Available Time Entry Activities (Discovered):**\n\n"
+                            text = (
+                                "⚠️ Time entry activities endpoint not available, but activities can still be used!\n\n"
                             )
+                            text += "**Available Time Entry Activities (Discovered):**\n\n"
                             text += "- **Management** (ID: 1)\n"
                             text += "  Administrative and planning tasks\n\n"
                             text += "- **Specification** (ID: 2)\n"
@@ -2553,7 +2437,9 @@ class OpenProjectMCPServer:
                             text += "  Quality assurance and testing\n\n"
                             text += "**Usage**: Use these activity IDs when creating time entries with the `activity_id` parameter.\n\n"
                             text += "**Example**: `create_time_entry` with `activity_id: 3` for Development work\n\n"
-                            text += f"**Technical Note**: Endpoint returned 404, but activities are functional: {error_msg}"
+                            text += (
+                                f"**Technical Note**: Endpoint returned 404, but activities are functional: {error_msg}"
+                            )
                         else:
                             text = f"❌ Failed to retrieve time entry activities: {error_msg}"
 
@@ -2577,16 +2463,11 @@ class OpenProjectMCPServer:
                             if version.get("endDate"):
                                 text += f"  End Date: {version.get('endDate')}\n"
 
-                            if (
-                                "_embedded" in version
-                                and "definingProject" in version["_embedded"]
-                            ):
+                            if "_embedded" in version and "definingProject" in version["_embedded"]:
                                 text += f"  Project: {version['_embedded']['definingProject'].get('name', 'Unknown')}\n"
 
                             if version.get("description", {}).get("raw"):
-                                text += (
-                                    f"  Description: {version['description']['raw']}\n"
-                                )
+                                text += f"  Description: {version['description']['raw']}\n"
                             text += "\n"
 
                     return [TextContent(type="text", text=text)]
@@ -2603,7 +2484,7 @@ class OpenProjectMCPServer:
 
                     result = await self.client.create_version(project_id, data)
 
-                    text = f"✅ Version created successfully:\n\n"
+                    text = "✅ Version created successfully:\n\n"
                     text += f"- **Name**: {result.get('name', 'N/A')}\n"
                     text += f"- **ID**: {result.get('id', 'N/A')}\n"
                     text += f"- **Status**: {result.get('status', 'Unknown')}\n"
@@ -2613,10 +2494,7 @@ class OpenProjectMCPServer:
                     if result.get("endDate"):
                         text += f"- **End Date**: {result.get('endDate')}\n"
 
-                    if (
-                        "_embedded" in result
-                        and "definingProject" in result["_embedded"]
-                    ):
+                    if "_embedded" in result and "definingProject" in result["_embedded"]:
                         text += f"- **Project**: {result['_embedded']['definingProject'].get('name', 'Unknown')}\n"
 
                     return [TextContent(type="text", text=text)]
@@ -2627,7 +2505,7 @@ class OpenProjectMCPServer:
                     if not user_info:
                         text = "❌ Unable to retrieve user permissions."
                     else:
-                        text = f"**Current User Permissions:**\n\n"
+                        text = "**Current User Permissions:**\n\n"
                         text += f"- **Name**: {user_info.get('name', 'Unknown')}\n"
                         text += f"- **ID**: {user_info.get('id', 'N/A')}\n"
                         text += f"- **Email**: {user_info.get('email', 'N/A')}\n"
@@ -2639,12 +2517,12 @@ class OpenProjectMCPServer:
                         # Check for specific permission-related links
                         if "_links" in user_info:
                             links = user_info["_links"]
-                            text += f"\n**Available Actions:**\n"
+                            text += "\n**Available Actions:**\n"
                             for link_name, link_info in links.items():
                                 if link_name not in ["self", "showUser"]:
                                     text += f"- {link_name}: Available\n"
 
-                        text += f"\n**Tip**: Use this information to understand why certain operations may fail due to insufficient permissions."
+                        text += "\n**Tip**: Use this information to understand why certain operations may fail due to insufficient permissions."
 
                     return [TextContent(type="text", text=text)]
 
@@ -2661,7 +2539,7 @@ class OpenProjectMCPServer:
 
                     result = await self.client.create_project(data)
 
-                    text = f"✅ Project created successfully:\n\n"
+                    text = "✅ Project created successfully:\n\n"
                     text += f"- **Name**: {result.get('name', 'N/A')}\n"
                     text += f"- **ID**: #{result.get('id', 'N/A')}\n"
                     text += f"- **Identifier**: {result.get('identifier', 'N/A')}\n"
@@ -2687,11 +2565,7 @@ class OpenProjectMCPServer:
                             update_data[field] = arguments[field]
 
                     if not update_data:
-                        return [
-                            TextContent(
-                                type="text", text="❌ No fields provided to update."
-                            )
-                        ]
+                        return [TextContent(type="text", text="❌ No fields provided to update.")]
 
                     result = await self.client.update_project(project_id, update_data)
 
@@ -2719,7 +2593,7 @@ class OpenProjectMCPServer:
                     project_id = arguments["project_id"]
                     result = await self.client.get_project(project_id)
 
-                    text = f"**Project Details:**\n\n"
+                    text = "**Project Details:**\n\n"
                     text += f"- **Name**: {result.get('name', 'N/A')}\n"
                     text += f"- **ID**: #{result.get('id', 'N/A')}\n"
                     text += f"- **Identifier**: {result.get('identifier', 'N/A')}\n"
@@ -2766,7 +2640,7 @@ class OpenProjectMCPServer:
 
                     result = await self.client.create_membership(data)
 
-                    text = f"✅ Membership created successfully:\n\n"
+                    text = "✅ Membership created successfully:\n\n"
                     text += f"- **ID**: #{result.get('id', 'N/A')}\n"
 
                     if "_embedded" in result:
@@ -2776,10 +2650,7 @@ class OpenProjectMCPServer:
                         if "principal" in embedded:
                             text += f"- **User/Group**: {embedded['principal'].get('name', 'Unknown')}\n"
                         if "roles" in embedded:
-                            roles = [
-                                role.get("name", "Unknown")
-                                for role in embedded["roles"]
-                            ]
+                            roles = [role.get("name", "Unknown") for role in embedded["roles"]]
                             text += f"- **Roles**: {', '.join(roles)}\n"
 
                     return [TextContent(type="text", text=text)]
@@ -2795,30 +2666,19 @@ class OpenProjectMCPServer:
                         update_data["role_id"] = arguments["role_id"]
 
                     if "notification_message" in arguments:
-                        update_data["notification_message"] = arguments[
-                            "notification_message"
-                        ]
+                        update_data["notification_message"] = arguments["notification_message"]
 
                     if not update_data:
-                        return [
-                            TextContent(
-                                type="text", text="❌ No fields provided to update."
-                            )
-                        ]
+                        return [TextContent(type="text", text="❌ No fields provided to update.")]
 
-                    result = await self.client.update_membership(
-                        membership_id, update_data
-                    )
+                    result = await self.client.update_membership(membership_id, update_data)
 
                     text = f"✅ Membership #{membership_id} updated successfully:\n\n"
 
                     if "_embedded" in result:
                         embedded = result["_embedded"]
                         if "roles" in embedded:
-                            roles = [
-                                role.get("name", "Unknown")
-                                for role in embedded["roles"]
-                            ]
+                            roles = [role.get("name", "Unknown") for role in embedded["roles"]]
                             text += f"- **Roles**: {', '.join(roles)}\n"
 
                     return [TextContent(type="text", text=text)]
@@ -2839,7 +2699,7 @@ class OpenProjectMCPServer:
                     membership_id = arguments["membership_id"]
                     result = await self.client.get_membership(membership_id)
 
-                    text = f"**Membership Details:**\n\n"
+                    text = "**Membership Details:**\n\n"
                     text += f"- **ID**: #{result.get('id', 'N/A')}\n"
 
                     if "_embedded" in result:
@@ -2849,10 +2709,7 @@ class OpenProjectMCPServer:
                         if "principal" in embedded:
                             text += f"- **User/Group**: {embedded['principal'].get('name', 'Unknown')}\n"
                         if "roles" in embedded:
-                            roles = [
-                                role.get("name", "Unknown")
-                                for role in embedded["roles"]
-                            ]
+                            roles = [role.get("name", "Unknown") for role in embedded["roles"]]
                             text += f"- **Roles**: {', '.join(roles)}\n"
 
                     return [TextContent(type="text", text=text)]
@@ -2861,9 +2718,7 @@ class OpenProjectMCPServer:
                     project_id = arguments["project_id"]
 
                     # Filter memberships by project
-                    filters = json.dumps(
-                        [{"project": {"operator": "=", "values": [str(project_id)]}}]
-                    )
+                    filters = json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
                     result = await self.client.get_memberships(project_id=project_id)
                     memberships = result.get("_embedded", {}).get("elements", [])
 
@@ -2878,14 +2733,9 @@ class OpenProjectMCPServer:
                                 roles = []
 
                                 if "principal" in embedded:
-                                    user_name = embedded["principal"].get(
-                                        "name", "Unknown"
-                                    )
+                                    user_name = embedded["principal"].get("name", "Unknown")
                                 if "roles" in embedded:
-                                    roles = [
-                                        role.get("name", "Unknown")
-                                        for role in embedded["roles"]
-                                    ]
+                                    roles = [role.get("name", "Unknown") for role in embedded["roles"]]
 
                                 text += f"- **{user_name}**: {', '.join(roles)}\n"
 
@@ -2909,14 +2759,9 @@ class OpenProjectMCPServer:
                                 roles = []
 
                                 if "project" in embedded:
-                                    project_name = embedded["project"].get(
-                                        "name", "Unknown"
-                                    )
+                                    project_name = embedded["project"].get("name", "Unknown")
                                 if "roles" in embedded:
-                                    roles = [
-                                        role.get("name", "Unknown")
-                                        for role in embedded["roles"]
-                                    ]
+                                    roles = [role.get("name", "Unknown") for role in embedded["roles"]]
 
                                 text += f"- **{project_name}**: {', '.join(roles)}\n"
 
@@ -2939,7 +2784,7 @@ class OpenProjectMCPServer:
                     role_id = arguments["role_id"]
                     result = await self.client.get_role(role_id)
 
-                    text = f"**Role Details:**\n\n"
+                    text = "**Role Details:**\n\n"
                     text += f"- **Name**: {result.get('name', 'N/A')}\n"
                     text += f"- **ID**: #{result.get('id', 'N/A')}\n"
 
@@ -2955,11 +2800,9 @@ class OpenProjectMCPServer:
                     work_package_id = arguments["work_package_id"]
                     parent_id = arguments["parent_id"]
 
-                    result = await self.client.set_work_package_parent(
-                        work_package_id, parent_id
-                    )
+                    result = await self.client.set_work_package_parent(work_package_id, parent_id)
 
-                    text = f"✅ Parent relationship created successfully:\n\n"
+                    text = "✅ Parent relationship created successfully:\n\n"
                     text += f"- **Child Work Package**: #{work_package_id}\n"
                     text += f"- **Parent Work Package**: #{parent_id}\n"
                     text += f"- **Subject**: {result.get('subject', 'N/A')}\n"
@@ -2973,11 +2816,9 @@ class OpenProjectMCPServer:
                 elif name == "remove_work_package_parent":
                     work_package_id = arguments["work_package_id"]
 
-                    result = await self.client.remove_work_package_parent(
-                        work_package_id
-                    )
+                    result = await self.client.remove_work_package_parent(work_package_id)
 
-                    text = f"✅ Parent relationship removed successfully:\n\n"
+                    text = "✅ Parent relationship removed successfully:\n\n"
                     text += f"- **Work Package**: #{work_package_id} is now top-level\n"
                     text += f"- **Subject**: {result.get('subject', 'N/A')}\n"
 
@@ -2987,9 +2828,7 @@ class OpenProjectMCPServer:
                     parent_id = arguments["parent_id"]
                     include_descendants = arguments.get("include_descendants", False)
 
-                    result = await self.client.list_work_package_children(
-                        parent_id, include_descendants
-                    )
+                    result = await self.client.list_work_package_children(parent_id, include_descendants)
                     children = result.get("_embedded", {}).get("elements", [])
 
                     if not children:
@@ -3024,7 +2863,7 @@ class OpenProjectMCPServer:
 
                     result = await self.client.create_work_package_relation(data)
 
-                    text = f"✅ Work package relation created successfully:\n\n"
+                    text = "✅ Work package relation created successfully:\n\n"
                     text += f"- **Relation ID**: #{result.get('id', 'N/A')}\n"
                     text += f"- **Type**: {result.get('type', 'N/A')}\n"
                     text += f"- **From**: Work Package #{arguments['from_id']}\n"
@@ -3033,9 +2872,7 @@ class OpenProjectMCPServer:
                     if "lag" in result:
                         text += f"- **Lag**: {result.get('lag', 0)} working days\n"
                     if "description" in result:
-                        text += (
-                            f"- **Description**: {result.get('description', 'N/A')}\n"
-                        )
+                        text += f"- **Description**: {result.get('description', 'N/A')}\n"
 
                     return [TextContent(type="text", text=text)]
 
@@ -3045,15 +2882,11 @@ class OpenProjectMCPServer:
 
                     if "work_package_id" in arguments:
                         wp_id = arguments["work_package_id"]
-                        filter_conditions.append(
-                            {"involved": {"operator": "=", "values": [str(wp_id)]}}
-                        )
+                        filter_conditions.append({"involved": {"operator": "=", "values": [str(wp_id)]}})
 
                     if "relation_type" in arguments:
                         rel_type = arguments["relation_type"]
-                        filter_conditions.append(
-                            {"type": {"operator": "=", "values": [rel_type]}}
-                        )
+                        filter_conditions.append({"type": {"operator": "=", "values": [rel_type]}})
 
                     if filter_conditions:
                         filters = json.dumps(filter_conditions)
@@ -3077,9 +2910,7 @@ class OpenProjectMCPServer:
                                     text += f"  To: #{to_wp.get('id', 'N/A')} - {to_wp.get('subject', 'No subject')}\n"
 
                             if "lag" in relation:
-                                text += (
-                                    f"  Lag: {relation.get('lag', 0)} working days\n"
-                                )
+                                text += f"  Lag: {relation.get('lag', 0)} working days\n"
                             if "description" in relation:
                                 text += f"  Description: {relation.get('description', 'N/A')}\n"
                             text += "\n"
@@ -3096,15 +2927,9 @@ class OpenProjectMCPServer:
                             update_data[field] = arguments[field]
 
                     if not update_data:
-                        return [
-                            TextContent(
-                                type="text", text="❌ No fields provided to update."
-                            )
-                        ]
+                        return [TextContent(type="text", text="❌ No fields provided to update.")]
 
-                    result = await self.client.update_work_package_relation(
-                        relation_id, update_data
-                    )
+                    result = await self.client.update_work_package_relation(relation_id, update_data)
 
                     text = f"✅ Work package relation #{relation_id} updated successfully:\n\n"
                     text += f"- **Type**: {result.get('type', 'N/A')}\n"
@@ -3112,25 +2937,19 @@ class OpenProjectMCPServer:
                     if "lag" in result:
                         text += f"- **Lag**: {result.get('lag', 0)} working days\n"
                     if "description" in result:
-                        text += (
-                            f"- **Description**: {result.get('description', 'N/A')}\n"
-                        )
+                        text += f"- **Description**: {result.get('description', 'N/A')}\n"
 
                     return [TextContent(type="text", text=text)]
 
                 elif name == "delete_work_package_relation":
                     relation_id = arguments["relation_id"]
 
-                    success = await self.client.delete_work_package_relation(
-                        relation_id
-                    )
+                    success = await self.client.delete_work_package_relation(relation_id)
 
                     if success:
                         text = f"✅ Work package relation #{relation_id} deleted successfully."
                     else:
-                        text = (
-                            f"❌ Failed to delete work package relation #{relation_id}."
-                        )
+                        text = f"❌ Failed to delete work package relation #{relation_id}."
 
                     return [TextContent(type="text", text=text)]
 
@@ -3138,7 +2957,7 @@ class OpenProjectMCPServer:
                     relation_id = arguments["relation_id"]
                     result = await self.client.get_work_package_relation(relation_id)
 
-                    text = f"**Work Package Relation Details:**\n\n"
+                    text = "**Work Package Relation Details:**\n\n"
                     text += f"- **ID**: #{result.get('id', 'N/A')}\n"
                     text += f"- **Type**: {result.get('type', 'N/A')}\n"
                     text += f"- **Reverse Type**: {result.get('reverseType', 'N/A')}\n"
@@ -3148,15 +2967,15 @@ class OpenProjectMCPServer:
                         if "from" in embedded and "to" in embedded:
                             from_wp = embedded["from"]
                             to_wp = embedded["to"]
-                            text += f"- **From**: #{from_wp.get('id', 'N/A')} - {from_wp.get('subject', 'No subject')}\n"
+                            text += (
+                                f"- **From**: #{from_wp.get('id', 'N/A')} - {from_wp.get('subject', 'No subject')}\n"
+                            )
                             text += f"- **To**: #{to_wp.get('id', 'N/A')} - {to_wp.get('subject', 'No subject')}\n"
 
                     if "lag" in result:
                         text += f"- **Lag**: {result.get('lag', 0)} working days\n"
                     if "description" in result:
-                        text += (
-                            f"- **Description**: {result.get('description', 'N/A')}\n"
-                        )
+                        text += f"- **Description**: {result.get('description', 'N/A')}\n"
 
                     return [TextContent(type="text", text=text)]
 
@@ -3196,9 +3015,7 @@ class OpenProjectMCPServer:
         from mcp.server.stdio import stdio_server
 
         async with stdio_server() as (read_stream, write_stream):
-            await self.server.run(
-                read_stream, write_stream, self.server.create_initialization_options()
-            )
+            await self.server.run(read_stream, write_stream, self.server.create_initialization_options())
 
 
 async def main():
@@ -3209,5 +3026,10 @@ async def main():
     await server.run()
 
 
-if __name__ == "__main__":
+def cli_entry():
+    """CLI entry point for uvx/pip installation"""
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    cli_entry()
