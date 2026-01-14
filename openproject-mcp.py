@@ -297,6 +297,18 @@ class OpenProjectClient:
         if "date" in data:
             payload["date"] = data["date"]
 
+        # Add custom fields (customField1, customField2, etc.)
+        if "_links" not in payload:
+            payload["_links"] = {}
+        for key, value in data.items():
+            if key.startswith("customField"):
+                if isinstance(value, dict) and "href" in value:
+                    # List-type custom field - add to _links
+                    payload["_links"][key] = value
+                else:
+                    # Text/number custom field - add directly
+                    payload[key] = value
+
         # Create work package
         return await self._request("POST", "/work_packages", payload)
 
@@ -498,6 +510,18 @@ class OpenProjectClient:
             payload["dueDate"] = data["dueDate"]
         if "date" in data:
             payload["date"] = data["date"]
+
+        # Add custom fields (customField1, customField2, etc.)
+        if "_links" not in payload:
+            payload["_links"] = {}
+        for key, value in data.items():
+            if key.startswith("customField"):
+                if isinstance(value, dict) and "href" in value:
+                    # List-type custom field - add to _links
+                    payload["_links"][key] = value
+                else:
+                    # Text/number custom field - add directly
+                    payload[key] = value
 
         return await self._request(
             "PATCH", f"/work_packages/{work_package_id}", payload
