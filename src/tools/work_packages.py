@@ -2,7 +2,7 @@
 
 import json
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field  # noqa: F401 (BaseModel/Field kept for commented reference models)
 
 from src.server import mcp, get_client
 from src.utils.formatting import (
@@ -13,36 +13,31 @@ from src.utils.formatting import (
 )
 
 
-# Pydantic models for type-safe input validation
-class CreateWorkPackageInput(BaseModel):
-    """Input model for creating work packages with validation."""
+# Pydantic models kept for reference — tools now use flat parameters for MCP compatibility
+# class CreateWorkPackageInput(BaseModel):
+#     project_id: int
+#     subject: str
+#     type_id: int
+#     description: Optional[str] = None
+#     start_date: Optional[str] = None
+#     due_date: Optional[str] = None
+#     assignee_id: Optional[int] = None
+#     status_id: Optional[int] = None
+#     priority_id: Optional[int] = None
+#     version_id: Optional[int] = None
 
-    project_id: int = Field(..., description="Project ID where work package will be created", gt=0)
-    subject: str = Field(..., description="Work package title/subject", min_length=1, max_length=255)
-    type_id: int = Field(..., description="Type ID (use list_types to see available types)", gt=0)
-    description: Optional[str] = Field(None, description="Detailed description in raw format")
-    start_date: Optional[str] = Field(None, description="Start date in ISO format (YYYY-MM-DD)")
-    due_date: Optional[str] = Field(None, description="Due date in ISO format (YYYY-MM-DD)")
-    assignee_id: Optional[int] = Field(None, description="Assignee user ID", gt=0)
-    status_id: Optional[int] = Field(None, description="Status ID", gt=0)
-    priority_id: Optional[int] = Field(None, description="Priority ID", gt=0)
-    version_id: Optional[int] = Field(None, description="Version/milestone ID to assign work package to", gt=0)
-
-
-class UpdateWorkPackageInput(BaseModel):
-    """Input model for updating work packages with validation."""
-
-    work_package_id: int = Field(..., description="Work package ID to update", gt=0)
-    subject: Optional[str] = Field(None, description="New subject/title", min_length=1, max_length=255)
-    description: Optional[str] = Field(None, description="New description")
-    type_id: Optional[int] = Field(None, description="New type ID", gt=0)
-    status_id: Optional[int] = Field(None, description="New status ID", gt=0)
-    priority_id: Optional[int] = Field(None, description="New priority ID", gt=0)
-    assignee_id: Optional[int] = Field(None, description="New assignee user ID", gt=0)
-    start_date: Optional[str] = Field(None, description="New start date (YYYY-MM-DD)")
-    due_date: Optional[str] = Field(None, description="New due date (YYYY-MM-DD)")
-    percentage_done: Optional[int] = Field(None, description="Progress percentage (0-100)", ge=0, le=100)
-    version_id: Optional[int] = Field(None, description="Version/milestone ID to assign work package to", gt=0)
+# class UpdateWorkPackageInput(BaseModel):
+#     work_package_id: int
+#     subject: Optional[str] = None
+#     description: Optional[str] = None
+#     type_id: Optional[int] = None
+#     status_id: Optional[int] = None
+#     priority_id: Optional[int] = None
+#     assignee_id: Optional[int] = None
+#     start_date: Optional[str] = None
+#     due_date: Optional[str] = None
+#     percentage_done: Optional[int] = None
+#     version_id: Optional[int] = None
 
 
 @mcp.tool
@@ -387,54 +382,62 @@ async def search_work_packages(
 
 
 @mcp.tool
-async def create_work_package(input: CreateWorkPackageInput) -> str:
+async def create_work_package(
+    project_id: int,
+    subject: str,
+    type_id: int,
+    description: Optional[str] = None,
+    priority_id: Optional[int] = None,
+    assignee_id: Optional[int] = None,
+    version_id: Optional[int] = None,
+    status_id: Optional[int] = None,
+    start_date: Optional[str] = None,
+    due_date: Optional[str] = None,
+) -> str:
     """Create a new work package (task) - CRITICAL tool for creating tasks.
 
-    This is one of the most important tools for your 12 users to create new work items.
+    This is one of the most important tools for creating new work items.
 
     Args:
-        input: Work package data including project_id, subject, type_id, and optional fields
+        project_id: Project ID where the work package will be created
+        subject: Work package title/subject
+        type_id: Type ID (use list_types to see available types)
+        description: Detailed description (plain text)
+        priority_id: Priority ID (use list_priorities to see available priorities)
+        assignee_id: Assignee user ID (use list_users to find users)
+        version_id: Version/sprint ID to assign the work package to
+        status_id: Initial status ID (use list_statuses to see available statuses)
+        start_date: Start date in ISO format (YYYY-MM-DD)
+        due_date: Due date in ISO format (YYYY-MM-DD)
 
     Returns:
         Success message with created work package ID and details
-
-    Example:
-        To create a bug in project 5:
-        {
-            "project_id": 5,
-            "subject": "Fix login issue",
-            "type_id": 1,
-            "description": "Users cannot login with valid credentials",
-            "priority_id": 3,
-            "assignee_id": 7,
-            "due_date": "2025-01-15"
-        }
     """
     try:
         client = get_client()
 
         # Build data dict for API
         data = {
-            "project": input.project_id,
-            "subject": input.subject,
-            "type": input.type_id,
+            "project": project_id,
+            "subject": subject,
+            "type": type_id,
         }
 
         # Add optional fields
-        if input.description:
-            data["description"] = input.description
-        if input.priority_id:
-            data["priority_id"] = input.priority_id
-        if input.assignee_id:
-            data["assignee_id"] = input.assignee_id
-        if input.version_id:
-            data["version_id"] = input.version_id
-
-        # Add date fields (use camelCase for API)
-        if input.start_date:
-            data["startDate"] = input.start_date
-        if input.due_date:
-            data["dueDate"] = input.due_date
+        if description:
+            data["description"] = description
+        if priority_id:
+            data["priority_id"] = priority_id
+        if assignee_id:
+            data["assignee_id"] = assignee_id
+        if version_id:
+            data["version_id"] = version_id
+        if status_id:
+            data["status_id"] = status_id
+        if start_date:
+            data["startDate"] = start_date
+        if due_date:
+            data["dueDate"] = due_date
 
         # Create work package
         result = await client.create_work_package(data)
@@ -469,27 +472,39 @@ async def create_work_package(input: CreateWorkPackageInput) -> str:
 
 
 @mcp.tool
-async def update_work_package(input: UpdateWorkPackageInput) -> str:
+async def update_work_package(
+    work_package_id: int,
+    subject: Optional[str] = None,
+    description: Optional[str] = None,
+    type_id: Optional[int] = None,
+    status_id: Optional[int] = None,
+    priority_id: Optional[int] = None,
+    assignee_id: Optional[int] = None,
+    percentage_done: Optional[int] = None,
+    version_id: Optional[int] = None,
+    start_date: Optional[str] = None,
+    due_date: Optional[str] = None,
+) -> str:
     """Update an existing work package (task) - CRITICAL tool for updating tasks.
 
-    This is one of the most important tools for your 12 users to update work items,
+    This is one of the most important tools for updating work items,
     including changing status, assignee, dates, and progress.
 
     Args:
-        input: Work package update data including work_package_id and fields to update
+        work_package_id: ID of the work package to update
+        subject: New title/subject
+        description: New description (plain text)
+        type_id: New type ID (use list_types to see available types)
+        status_id: New status ID (use list_statuses to see available statuses)
+        priority_id: New priority ID (use list_priorities to see available priorities)
+        assignee_id: New assignee user ID (use list_users to find users)
+        percentage_done: Progress percentage (0-100)
+        version_id: Version/sprint ID to assign the work package to
+        start_date: Start date in ISO format (YYYY-MM-DD)
+        due_date: Due date in ISO format (YYYY-MM-DD)
 
     Returns:
         Success message with updated work package details
-
-    Example:
-        To update work package #123 status and assignee:
-        {
-            "work_package_id": 123,
-            "status_id": 5,
-            "assignee_id": 7,
-            "percentage_done": 50,
-            "due_date": "2025-01-20"
-        }
     """
     try:
         client = get_client()
@@ -497,34 +512,32 @@ async def update_work_package(input: UpdateWorkPackageInput) -> str:
         # Build data dict for API (only include provided fields)
         data = {}
 
-        if input.subject is not None:
-            data["subject"] = input.subject
-        if input.description is not None:
-            data["description"] = input.description
-        if input.type_id is not None:
-            data["type_id"] = input.type_id
-        if input.status_id is not None:
-            data["status_id"] = input.status_id
-        if input.priority_id is not None:
-            data["priority_id"] = input.priority_id
-        if input.assignee_id is not None:
-            data["assignee_id"] = input.assignee_id
-        if input.percentage_done is not None:
-            data["percentage_done"] = input.percentage_done
-        if input.version_id is not None:
-            data["version_id"] = input.version_id
-
-        # Add date fields (use camelCase for API)
-        if input.start_date is not None:
-            data["startDate"] = input.start_date
-        if input.due_date is not None:
-            data["dueDate"] = input.due_date
+        if subject is not None:
+            data["subject"] = subject
+        if description is not None:
+            data["description"] = description
+        if type_id is not None:
+            data["type_id"] = type_id
+        if status_id is not None:
+            data["status_id"] = status_id
+        if priority_id is not None:
+            data["priority_id"] = priority_id
+        if assignee_id is not None:
+            data["assignee_id"] = assignee_id
+        if percentage_done is not None:
+            data["percentage_done"] = percentage_done
+        if version_id is not None:
+            data["version_id"] = version_id
+        if start_date is not None:
+            data["startDate"] = start_date
+        if due_date is not None:
+            data["dueDate"] = due_date
 
         if not data:
             return format_error("No fields provided to update")
 
         # Update work package
-        result = await client.update_work_package(input.work_package_id, data)
+        result = await client.update_work_package(work_package_id, data)
 
         # Format success response
         wp_id = result.get("id")

@@ -128,13 +128,38 @@ class OpenProjectClient:
 
     def _format_error_message(self, status: int, response_text: str) -> str:
         """Format error message based on HTTP status code"""
-        base_msg = f"API Error {status}: {response_text}"
+        # Try to extract a human-readable message from OpenProject's JSON error body
+        api_message = None
+        try:
+            error_json = json.loads(response_text)
+            if isinstance(error_json, dict):
+                api_message = error_json.get("message")
+                error_id = error_json.get("errorIdentifier", "")
+                # Also collect field-level validation errors if present
+                details = error_json.get("_embedded", {}).get("details", {})
+                attribute_errors = details.get("attribute", [])
+                if attribute_errors:
+                    api_message = api_message or "Validation failed"
+                    api_message += ": " + "; ".join(
+                        f"{e.get('title', '')} - {e.get('message', '')}"
+                        for e in attribute_errors
+                        if isinstance(e, dict)
+                    )
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+        if api_message:
+            base_msg = f"API Error {status}: {api_message}"
+        else:
+            base_msg = f"API Error {status}: {response_text}"
 
         error_hints = {
             401: "Authentication failed. Please check your API key.",
             403: "Access denied. The user lacks required permissions.",
             404: "Resource not found. Please verify the URL and resource exists.",
             407: "Proxy authentication required.",
+            409: "Update conflict: the resource was modified elsewhere. Retry the operation.",
+            422: "The request was rejected by the server. Check field values and workflow rules.",
             500: "Internal server error. Please try again later.",
             502: "Bad gateway. The server or proxy is not responding correctly.",
             503: "Service unavailable. The server might be under maintenance.",
