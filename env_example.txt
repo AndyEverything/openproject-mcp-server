@@ -17,3 +17,7 @@ LOG_LEVEL=INFO
 
 # Optional: Test connection on startup (true/false)
 TEST_CONNECTION_ON_STARTUP=true
+
+# Optional: Read-only mode — blocks ALL write operations (POST/PATCH/PUT/DELETE)
+# When true, create/update/delete tools return an error; read tools work normally
+READ_ONLY_MODE=false

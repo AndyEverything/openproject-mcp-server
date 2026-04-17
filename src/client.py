@@ -21,11 +21,24 @@ logger = logging.getLogger(__name__)
 # Version information
 __version__ = "2.0.0"
 
+# HTTP methods that modify data — blocked when readonly=True
+_WRITE_METHODS = frozenset({"POST", "PATCH", "PUT", "DELETE"})
+# Retry configuration
+_MAX_RETRIES = 3
+_RETRY_BASE_DELAY = 1.0  # seconds (doubled on each attempt: 1s, 2s, 4s)
+_RETRYABLE_STATUSES = {500, 502, 503, 504}
+
 
 class OpenProjectClient:
     """Client for the OpenProject API v3 with optional proxy support"""
 
-    def __init__(self, base_url: str, api_key: str, proxy: Optional[str] = None):
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        proxy: Optional[str] = None,
+        readonly: bool = False,
+    ):
         """
         Initialize the OpenProject client.
 
@@ -33,10 +46,12 @@ class OpenProjectClient:
             base_url: The base URL of the OpenProject instance
             api_key: API key for authentication
             proxy: Optional HTTP proxy URL
+            readonly: If True, POST/PATCH/PUT/DELETE requests are blocked
         """
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.proxy = proxy
+        self.readonly = readonly
 
         # Setup headers with Basic Auth
         self.headers = {
@@ -49,6 +64,8 @@ class OpenProjectClient:
         logger.info(f"OpenProject Client initialized for: {self.base_url}")
         if self.proxy:
             logger.info(f"Using proxy: {self.proxy}")
+        if self.readonly:
+            logger.info("Read-only mode ENABLED: write requests will be blocked")
 
     def _encode_api_key(self) -> str:
         """Encode API key for Basic Auth"""
@@ -59,7 +76,10 @@ class OpenProjectClient:
         self, method: str, endpoint: str, data: Optional[Dict] = None
     ) -> Dict:
         """
-        Execute an API request.
+        Execute an API request with exponential backoff retry.
+
+        Retries automatically on transient server errors (500, 502, 503, 504)
+        and network failures. Non-retryable errors (4xx) are raised immediately.
 
         Args:
             method: HTTP method (GET, POST, etc.)
@@ -70,61 +90,89 @@ class OpenProjectClient:
             Dict: Response data from the API
 
         Raises:
-            Exception: If the request fails
+            Exception: If the request fails after all retry attempts
         """
+        if self.readonly and method.upper() in _WRITE_METHODS:
+            raise Exception(
+                f"Read-only mode is enabled: {method.upper()} operations are not "
+                "permitted. Set READ_ONLY_MODE=false to allow write operations."
+            )
+
         url = f"{self.base_url}/api/v3{endpoint}"
 
         logger.debug(f"API Request: {method} {url}")
         if data:
             logger.debug(f"Request body: {json.dumps(data, indent=2)}")
 
-        # Configure SSL and timeout
-        ssl_context = ssl.create_default_context()
-        connector = aiohttp.TCPConnector(ssl=ssl_context)
-        timeout = aiohttp.ClientTimeout(total=30)
+        last_exc: Optional[Exception] = None
 
-        async with aiohttp.ClientSession(
-            connector=connector, timeout=timeout
-        ) as session:
-            try:
-                # Build request parameters
-                request_params = {
-                    "method": method,
-                    "url": url,
-                    "headers": self.headers,
-                    "json": data,
-                }
+        for attempt in range(_MAX_RETRIES + 1):
+            if attempt > 0:
+                delay = _RETRY_BASE_DELAY * (2 ** (attempt - 1))
+                logger.warning(
+                    f"Retry {attempt}/{_MAX_RETRIES} for {method} {url} in {delay:.1f}s"
+                )
+                await asyncio.sleep(delay)
 
-                # Add proxy if configured
-                if self.proxy:
-                    request_params["proxy"] = self.proxy
+            ssl_context = ssl.create_default_context()
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            timeout = aiohttp.ClientTimeout(total=30)
 
-                async with session.request(**request_params) as response:
-                    response_text = await response.text()
+            async with aiohttp.ClientSession(
+                connector=connector, timeout=timeout
+            ) as session:
+                try:
+                    request_params = {
+                        "method": method,
+                        "url": url,
+                        "headers": self.headers,
+                        "json": data,
+                    }
 
-                    logger.debug(f"Response status: {response.status}")
+                    if self.proxy:
+                        request_params["proxy"] = self.proxy
 
-                    # Parse response
-                    try:
-                        response_json = (
-                            json.loads(response_text) if response_text else {}
-                        )
-                    except json.JSONDecodeError:
-                        logger.error(f"Invalid JSON response: {response_text[:200]}...")
-                        response_json = {}
+                    async with session.request(**request_params) as response:
+                        response_text = await response.text()
 
-                    # Handle errors
-                    if response.status >= 400:
-                        error_msg = self._format_error_message(
-                            response.status, response_text
-                        )
-                        raise Exception(error_msg)
+                        logger.debug(f"Response status: {response.status}")
 
-                    return response_json
+                        try:
+                            response_json = (
+                                json.loads(response_text) if response_text else {}
+                            )
+                        except json.JSONDecodeError:
+                            logger.error(
+                                f"Invalid JSON response: {response_text[:200]}..."
+                            )
+                            response_json = {}
 
-            except aiohttp.ClientError as e:
-                logger.error(f"Network error: {str(e)}")
-                raise Exception(f"Network error accessing {url}: {str(e)}")
+                        if response.status >= 400:
+                            error_msg = self._format_error_message(
+                                response.status, response_text
+                            )
+                            if (
+                                response.status in _RETRYABLE_STATUSES
+                                and attempt < _MAX_RETRIES
+                            ):
+                                logger.warning(
+                                    f"Transient error {response.status} on attempt "
+                                    f"{attempt + 1}/{_MAX_RETRIES + 1}, will retry"
+                                )
+                                last_exc = Exception(error_msg)
+                            else:
+                                raise Exception(error_msg)
+                        else:
+                            return response_json
+
+                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                    logger.warning(
+                        f"Network error on attempt {attempt + 1}/{_MAX_RETRIES + 1}: "
+                        f"{str(e)}"
+                    )
+                    last_exc = Exception(f"Network error accessing {url}: {str(e)}")
+
+        raise last_exc
 
     def _format_error_message(self, status: int, response_text: str) -> str:
         """Format error message based on HTTP status code"""
@@ -283,6 +331,18 @@ class OpenProjectClient:
             payload["dueDate"] = data["dueDate"]
         if "date" in data:
             payload["date"] = data["date"]
+
+        # Add custom fields (customField1, customField2, etc.)
+        if "_links" not in payload:
+            payload["_links"] = {}
+        for key, value in data.items():
+            if key.startswith("customField"):
+                if isinstance(value, dict) and "href" in value:
+                    # List-type custom field - add to _links
+                    payload["_links"][key] = value
+                else:
+                    # Text/number custom field - add directly
+                    payload[key] = value
 
         # Create work package
         return await self._request("POST", "/work_packages", payload)
@@ -502,6 +562,18 @@ class OpenProjectClient:
             payload["dueDate"] = data["dueDate"]
         if "date" in data:
             payload["date"] = data["date"]
+
+        # Add custom fields (customField1, customField2, etc.)
+        if "_links" not in payload:
+            payload["_links"] = {}
+        for key, value in data.items():
+            if key.startswith("customField"):
+                if isinstance(value, dict) and "href" in value:
+                    # List-type custom field - add to _links
+                    payload["_links"][key] = value
+                else:
+                    # Text/number custom field - add directly
+                    payload[key] = value
 
         return await self._request(
             "PATCH", f"/work_packages/{work_package_id}", payload

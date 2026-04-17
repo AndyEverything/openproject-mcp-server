@@ -17,14 +17,68 @@ A Model Context Protocol (MCP) server that provides seamless integration with [O
 - 🚀 **Async Operations**: Built with modern async/await patterns
 - 📊 **Comprehensive Logging**: Configurable logging levels
 
-## Prerequisites
+## Quick Start (uvx / pip)
+
+Install and run without cloning the repository:
+
+```bash
+# Run directly with uvx (no installation required)
+uvx openproject-mcp-server
+
+# Or install globally with pip
+pip install openproject-mcp-server
+```
+
+### Claude Code configuration
+
+Add to `~/.claude.json` under `mcpServers`:
+
+```json
+{
+  "mcpServers": {
+    "openproject": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["openproject-mcp-server"],
+      "env": {
+        "OPENPROJECT_URL": "https://your-instance.openproject.com",
+        "OPENPROJECT_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}
+```
+
+### Claude Desktop configuration
+
+**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "openproject": {
+      "command": "uvx",
+      "args": ["openproject-mcp-server"],
+      "env": {
+        "OPENPROJECT_URL": "https://your-instance.openproject.com",
+        "OPENPROJECT_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}
+```
+
+---
+
+## Prerequisites (for development / source install)
 
 - Python 3.10 or higher
 - [uv](https://docs.astral.sh/uv/) (fast Python package manager)
 - An OpenProject instance (cloud or self-hosted)
 - OpenProject API key (generated from your user profile)
 
-## Installation
+## Installation (from source)
 
 ### 1. Install uv (if not already installed)
 
