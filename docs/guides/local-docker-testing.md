@@ -154,7 +154,7 @@ Add this to your Claude Desktop config (`~/Library/Application Support/Claude/cl
       "command": "docker",
       "args": [
         "run", "--rm", "-i",
-        "--env-file", "/absolute/path/to/your/.env",
+        "--env-file", "/absolute/path/to/openproject-mcp-server/.env",
         "openproject-mcp",
         "python", "openproject-mcp-fastmcp.py"
       ]
@@ -162,5 +162,9 @@ Add this to your Claude Desktop config (`~/Library/Application Support/Claude/cl
   }
 }
 ```
+
+Replace `/absolute/path/to/openproject-mcp-server/.env` with the real path on your machine (e.g. `/Users/yourname/progetti/openproject-mcp-server/.env`).
+
+> **For team deployment on EC2:** See [ec2-deployment.md](./ec2-deployment.md) — users connect via `mcp-remote` instead of running Docker locally.
 
 Restart Claude Desktop. The OpenProject tools will appear automatically.
