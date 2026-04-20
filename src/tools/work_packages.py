@@ -991,7 +991,7 @@ async def list_overdue_work_packages(
                     due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
                     days_overdue = (today - due_date).days
                     wp["_days_overdue"] = days_overdue
-                except:
+                except ValueError:
                     wp["_days_overdue"] = 0
             else:
                 wp["_days_overdue"] = 0
@@ -1097,7 +1097,7 @@ async def list_work_packages_due_soon(
                     due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
                     days_until = (due_date - today).days
                     wp["_days_until"] = days_until
-                except:
+                except ValueError:
                     wp["_days_until"] = 999
             else:
                 wp["_days_until"] = 999

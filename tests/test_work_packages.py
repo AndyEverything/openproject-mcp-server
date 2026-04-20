@@ -10,10 +10,12 @@ from src.tools.work_packages import (
     assign_work_package,
     create_work_package,
     delete_work_package,
+    list_overdue_work_packages,
     list_priorities,
     list_statuses,
     list_types,
     list_work_packages,
+    list_work_packages_due_soon,
     search_work_packages,
     unassign_work_package,
     update_work_package,
@@ -247,3 +249,35 @@ async def test_unassign_work_package_success(mock_client):
         result = await unassign_work_package(work_package_id=42)
 
     assert "✅" in result
+
+
+# ---------------------------------------------------------------------------
+# test bad date parsing for overdue and due soon functions
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_list_overdue_work_packages_bad_date(mock_client):
+    """Date parse errors must set _days_overdue=0 and not raise."""
+    mock_client.get_work_packages.return_value = {
+        "total": 1,
+        "_embedded": {
+            "elements": [{"id": 1, "subject": "Test", "dueDate": "not-a-date"}]
+        },
+    }
+    with patch("src.tools.work_packages.get_client", return_value=mock_client):
+        result = await list_overdue_work_packages()
+    assert isinstance(result, str)
+
+
+@pytest.mark.asyncio
+async def test_list_work_packages_due_soon_bad_date(mock_client):
+    """Date parse errors must set _days_until=999 and not raise."""
+    mock_client.get_work_packages.return_value = {
+        "total": 1,
+        "_embedded": {
+            "elements": [{"id": 1, "subject": "Test", "dueDate": "not-a-date"}]
+        },
+    }
+    with patch("src.tools.work_packages.get_client", return_value=mock_client):
+        result = await list_work_packages_due_soon(days=7)
+    assert isinstance(result, str)
