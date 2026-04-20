@@ -1,4 +1,8 @@
-mcp
-aiohttp
-python-dotenv
-certifi
+aiohttp==3.12.15
+certifi==2025.8.3
+fastmcp==2.13.2
+mcp==1.22.0
+pydantic==2.11.7
+python-dotenv==1.1.1
+starlette==0.47.3
+uvicorn==0.35.0
