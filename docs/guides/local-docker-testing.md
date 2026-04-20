@@ -54,9 +54,10 @@ sys.path.insert(0, '.')
 from src.client import OpenProjectClient
 async def test():
     c = OpenProjectClient(os.environ['OPENPROJECT_URL'], os.environ['OPENPROJECT_API_KEY'])
-    r = await c.get_current_user()
-    print('Connected as:', r.get('name', r.get('login')))
-    await c.close()
+    r = await c.test_connection()
+    print('Instance:', r.get('instanceName'))
+    print('Version:', r.get('coreVersion'))
+    print('User:', r.get('_links', {}).get('user', {}).get('title'))
 asyncio.run(test())
 "
 ```
@@ -64,10 +65,12 @@ asyncio.run(test())
 Expected output:
 
 ```
-Connected as: Your Name
+Instance: YourInstanceName
+Version: 12.x.x
+User: Your Name
 ```
 
-If you see your username, the credentials are correct and the server can reach OpenProject.
+If you see your instance name and username, the credentials are correct and the server can reach OpenProject.
 
 ---
 
@@ -97,6 +100,7 @@ Open a second terminal and run:
 ```bash
 curl -s -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"test_connection","arguments":{}}}' \
   | python3 -m json.tool
 ```
