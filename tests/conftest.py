@@ -16,19 +16,24 @@ os.environ.setdefault("READ_ONLY_MODE", "false")
 import pytest
 from unittest.mock import AsyncMock
 
-# Unwrap FunctionTool objects immediately after module loads so test imports get unwrapped functions
+# Unwrap FunctionTool objects for all tool modules so tests can call functions directly
 try:
-    from src.tools import work_packages
     from fastmcp.tools.tool import FunctionTool
+    from src.tools import (
+        connection, work_packages, projects, users, memberships,
+        hierarchy, relations, time_entries, versions, weekly_reports, news,
+    )
 
-    # For each function in the module that's wrapped as FunctionTool,
-    # replace it with the underlying function in the module namespace
-    for name in dir(work_packages):
-        attr = getattr(work_packages, name)
-        if isinstance(attr, FunctionTool):
-            setattr(work_packages, name, attr.fn)
+    for module in (
+        connection, work_packages, projects, users, memberships,
+        hierarchy, relations, time_entries, versions, weekly_reports, news,
+    ):
+        for name in dir(module):
+            attr = getattr(module, name)
+            if isinstance(attr, FunctionTool):
+                setattr(module, name, attr.fn)
 except (ImportError, AttributeError):
-    pass  # Safe to ignore if import fails
+    pass
 
 
 @pytest.fixture
