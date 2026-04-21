@@ -1,7 +1,10 @@
 """Authentication middleware for HTTP transport."""
 
+import logging
 import os
 from typing import Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class APIKeyAuth:
@@ -45,7 +48,7 @@ def load_api_keys_from_env() -> Dict[str, str]:
     valid_keys = {}
 
     if not keys_env:
-        print("[WARNING] No MCP_API_KEYS environment variable set. HTTP auth disabled.")
+        logger.warning("No MCP_API_KEYS environment variable set. HTTP auth disabled.")
         return valid_keys
 
     for pair in keys_env.split(","):
@@ -53,7 +56,7 @@ def load_api_keys_from_env() -> Dict[str, str]:
             key, name = pair.split(":", 1)
             valid_keys[key.strip()] = name.strip()
 
-    print(f"[INFO] Loaded {len(valid_keys)} API keys from environment")
+    logger.info("Loaded %d API keys from environment", len(valid_keys))
     return valid_keys
 
 

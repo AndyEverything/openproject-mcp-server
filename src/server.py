@@ -33,6 +33,7 @@ try:
     base_url = os.getenv("OPENPROJECT_URL")
     api_key = os.getenv("OPENPROJECT_API_KEY")
     proxy = os.getenv("OPENPROJECT_PROXY")
+    readonly = os.getenv("READ_ONLY_MODE", "false").strip().lower() == "true"
 
     if not base_url or not api_key:
         raise ValueError(
@@ -42,22 +43,32 @@ try:
     _client = OpenProjectClient(
         base_url=base_url,
         api_key=api_key,
-        proxy=proxy
+        proxy=proxy,
+        readonly=readonly,
     )
 
     logger.info(f"✅ OpenProject MCP Server initialized")
     logger.info(f"   Server: {base_url}")
     logger.info(f"   Proxy: {proxy if proxy else 'None'}")
+    if readonly:
+        logger.warning("⚠️  READ-ONLY mode: write operations are blocked")
+    else:
+        logger.info("   Mode: Read-Write")
 
 except Exception as e:
     logger.error(f"❌ Failed to initialize OpenProject client: {e}")
     raise
 
 
-# Dependency injection helper for tools
+# Dependency injection helpers for tools
 def get_client():
     """Get OpenProject client instance."""
     return _client
+
+
+def is_readonly() -> bool:
+    """Return True if the server is running in read-only mode (READ_ONLY_MODE=true)."""
+    return _client.readonly if _client else False
 
 
 # Import ALL tool modules (decorators auto-register tools)
