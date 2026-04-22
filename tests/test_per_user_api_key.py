@@ -61,3 +61,11 @@ def test_http_mode_without_key_raises():
 
     with pytest.raises(ValueError, match="X-OpenProject-Api-Key"):
         run_in_context(get_client, http_mode=True, api_key=None)
+
+
+def test_http_mode_with_empty_key_raises():
+    """HTTP mode + empty string key -> ValueError (falsy guard covers empty string)."""
+    from src.server import get_client
+
+    with pytest.raises(ValueError, match="X-OpenProject-Api-Key"):
+        run_in_context(get_client, http_mode=True, api_key="")

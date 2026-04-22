@@ -80,6 +80,7 @@ def get_client() -> "OpenProjectClient":
                 "X-OpenProject-Api-Key header is required for HTTP transport. "
                 "Add --header 'X-OpenProject-Api-Key: YOUR_TOKEN' to your mcp-remote config."
             )
+        assert _client is not None, "OpenProjectClient was not initialised — check startup logs"
         return OpenProjectClient(
             base_url=_client.base_url,
             api_key=api_key,
