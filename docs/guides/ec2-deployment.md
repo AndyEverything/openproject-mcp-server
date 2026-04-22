@@ -122,12 +122,21 @@ Each person adds this to their `claude_desktop_config.json`
         "mcp-remote",
         "https://openproject-mcp.spacest.com/mcp",
         "--header",
-        "Authorization: Basic REPLACE_WITH_BASE64"
+        "Authorization: Basic REPLACE_WITH_BASE64",
+        "--header",
+        "X-OpenProject-Api-Key: YOUR_PERSONAL_OPENPROJECT_TOKEN"
       ]
     }
   }
 }
 ```
+
+To find your personal OpenProject API token:
+1. Go to `https://YOUR-OPENPROJECT/my/access_token`
+2. Click **Generate** under *API access token*
+3. Copy the token and paste it as `YOUR_PERSONAL_OPENPROJECT_TOKEN`
+
+> Each team member uses their own token. Actions in OpenProject are attributed to the correct user.
 
 To generate the `REPLACE_WITH_BASE64` value:
 

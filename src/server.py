@@ -6,6 +6,8 @@ Main server file that initializes FastMCP and registers all tools.
 
 import os
 import logging
+from contextvars import ContextVar
+from typing import Optional
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 
@@ -29,6 +31,10 @@ mcp = FastMCP(
 # Initialize OpenProject client as global variable
 _client = None
 
+# ContextVars for per-user API key support in HTTP transport
+_http_mode: ContextVar[bool] = ContextVar("http_mode", default=False)
+_request_api_key: ContextVar[Optional[str]] = ContextVar("request_api_key", default=None)
+
 try:
     base_url = os.getenv("OPENPROJECT_URL")
     api_key = os.getenv("OPENPROJECT_API_KEY")
@@ -47,6 +53,11 @@ try:
         readonly=readonly,
     )
 
+    # Note: in HTTP transport mode, _client.api_key is never used for API calls.
+    # get_client() reads base_url/proxy/readonly from _client but creates an ephemeral
+    # client with the per-user key from the X-OpenProject-Api-Key header.
+    # OPENPROJECT_API_KEY in .env is still required at startup for config resolution.
+
     logger.info(f"✅ OpenProject MCP Server initialized")
     logger.info(f"   Server: {base_url}")
     logger.info(f"   Proxy: {proxy if proxy else 'None'}")
@@ -61,8 +72,27 @@ except Exception as e:
 
 
 # Dependency injection helpers for tools
-def get_client():
-    """Get OpenProject client instance."""
+def get_client() -> "OpenProjectClient":
+    """Return the OpenProjectClient for the current request context.
+
+    HTTP transport: requires X-OpenProject-Api-Key header — returns ephemeral client.
+    STDIO transport: returns the global shared client.
+    """
+    if _http_mode.get():
+        api_key = _request_api_key.get()
+        if not api_key:
+            raise ValueError(
+                "X-OpenProject-Api-Key header is required for HTTP transport. "
+                "Add --header 'X-OpenProject-Api-Key: YOUR_TOKEN' to your mcp-remote config."
+            )
+        if _client is None:
+            raise RuntimeError("OpenProjectClient was not initialised — check startup logs")
+        return OpenProjectClient(
+            base_url=_client.base_url,
+            api_key=api_key,
+            proxy=_client.proxy,
+            readonly=_client.readonly,
+        )
     return _client
 
 

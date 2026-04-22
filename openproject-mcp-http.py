@@ -2,30 +2,54 @@
 """
 OpenProject MCP Server - HTTP Transport Entry Point
 
-This is the entry point for HTTP transport (claude.com + 12 users).
-Includes API Key authentication for user tracking.
+Runs the Streamable HTTP transport with per-user OpenProject API key support.
+Each client passes their personal API key via the X-OpenProject-Api-Key header.
 """
 
+import logging
 import os
-from src.server import mcp
-from src.auth import load_api_keys_from_env
+
+import uvicorn
+from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+
+from src.server import _http_mode, _request_api_key, mcp
+
+logger = logging.getLogger(__name__)
+
+
+class ApiKeyMiddleware(BaseHTTPMiddleware):
+    """Extract X-OpenProject-Api-Key header and store in ContextVar per request."""
+
+    async def dispatch(self, request, call_next):
+        api_key = request.headers.get("X-OpenProject-Api-Key")
+        if not api_key:
+            from starlette.responses import JSONResponse
+            return JSONResponse(
+                {"error": "X-OpenProject-Api-Key header required"},
+                status_code=401,
+            )
+        t1 = _http_mode.set(True)
+        t2 = _request_api_key.set(api_key)
+        try:
+            return await call_next(request)
+        finally:
+            _http_mode.reset(t1)
+            _request_api_key.reset(t2)
+
 
 if __name__ == "__main__":
-    # Load API keys for authentication
-    api_keys = load_api_keys_from_env()
-
-    # Get host and port from environment
     host = os.getenv("MCP_HTTP_HOST", "0.0.0.0")
     port = int(os.getenv("MCP_HTTP_PORT", "8000"))
 
-    print(f"🚀 Starting OpenProject MCP Server (HTTP)")
-    print(f"   Host: {host}")
-    print(f"   Port: {port}")
-    print(f"   API Keys: {len(api_keys)} loaded")
+    logger.info("Starting OpenProject MCP Server (HTTP)")
+    logger.info("Host: %s  Port: %d", host, port)
+    logger.info("Per-user API key: enabled (X-OpenProject-Api-Key header required)")
 
-    # Run with HTTP transport
-    mcp.run(
-        transport="http",
-        host=host,
-        port=port
+    app = mcp.http_app(
+        middleware=[Middleware(ApiKeyMiddleware)]
     )
+
+    log_level = os.getenv("LOG_LEVEL", "INFO").lower()
+    uvicorn.run(app, host=host, port=port, log_level=log_level)
