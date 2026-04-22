@@ -53,6 +53,11 @@ try:
         readonly=readonly,
     )
 
+    # Note: in HTTP transport mode, _client.api_key is never used for API calls.
+    # get_client() reads base_url/proxy/readonly from _client but creates an ephemeral
+    # client with the per-user key from the X-OpenProject-Api-Key header.
+    # OPENPROJECT_API_KEY in .env is still required at startup for config resolution.
+
     logger.info(f"✅ OpenProject MCP Server initialized")
     logger.info(f"   Server: {base_url}")
     logger.info(f"   Proxy: {proxy if proxy else 'None'}")
@@ -80,7 +85,8 @@ def get_client() -> "OpenProjectClient":
                 "X-OpenProject-Api-Key header is required for HTTP transport. "
                 "Add --header 'X-OpenProject-Api-Key: YOUR_TOKEN' to your mcp-remote config."
             )
-        assert _client is not None, "OpenProjectClient was not initialised — check startup logs"
+        if _client is None:
+            raise RuntimeError("OpenProjectClient was not initialised — check startup logs")
         return OpenProjectClient(
             base_url=_client.base_url,
             api_key=api_key,

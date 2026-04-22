@@ -25,7 +25,11 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         api_key = request.headers.get("X-OpenProject-Api-Key")
         if not api_key:
-            return Response("X-OpenProject-Api-Key header required", status_code=401)
+            from starlette.responses import JSONResponse
+            return JSONResponse(
+                {"error": "X-OpenProject-Api-Key header required"},
+                status_code=401,
+            )
         t1 = _http_mode.set(True)
         t2 = _request_api_key.set(api_key)
         try:
