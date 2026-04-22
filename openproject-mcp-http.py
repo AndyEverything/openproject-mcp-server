@@ -12,6 +12,7 @@ import os
 import uvicorn
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 from src.server import _http_mode, _request_api_key, mcp
 
@@ -23,6 +24,8 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request, call_next):
         api_key = request.headers.get("X-OpenProject-Api-Key")
+        if not api_key:
+            return Response("X-OpenProject-Api-Key header required", status_code=401)
         t1 = _http_mode.set(True)
         t2 = _request_api_key.set(api_key)
         try:
@@ -40,8 +43,9 @@ if __name__ == "__main__":
     logger.info("Host: %s  Port: %d", host, port)
     logger.info("Per-user API key: enabled (X-OpenProject-Api-Key header required)")
 
-    app = mcp.streamable_http_app(
+    app = mcp.http_app(
         middleware=[Middleware(ApiKeyMiddleware)]
     )
 
-    uvicorn.run(app, host=host, port=port)
+    log_level = os.getenv("LOG_LEVEL", "INFO").lower()
+    uvicorn.run(app, host=host, port=port, log_level=log_level)
