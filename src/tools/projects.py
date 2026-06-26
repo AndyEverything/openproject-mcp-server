@@ -3,7 +3,8 @@
 import json
 from typing import Optional
 from src.server import mcp, get_client
-from pydantic import BaseModel, Field
+from pydantic import Field
+from src.utils.inputs import CoercibleModel
 from src.utils.formatting import format_success, format_error
 from src.utils.formatting import format_project_list
 
@@ -140,7 +141,7 @@ async def get_project(project_id: int) -> str:
         return f"❌ Failed to get project: {str(e)}"
 
 
-class CreateProjectInput(BaseModel):
+class CreateProjectInput(CoercibleModel):
     """Input model for creating projects."""
     name: str = Field(..., description="Project name", min_length=1, max_length=255)
     identifier: str = Field(..., description="Project identifier (lowercase, no spaces)", min_length=1, max_length=100)
@@ -150,7 +151,7 @@ class CreateProjectInput(BaseModel):
     parent_id: Optional[int] = Field(None, description="Parent project ID for sub-projects", gt=0)
 
 
-class AddSubprojectInput(BaseModel):
+class AddSubprojectInput(CoercibleModel):
     """Input model for adding subprojects."""
     parent_id: int = Field(..., description="Parent project ID", gt=0)
     name: str = Field(..., description="Subproject name", min_length=1, max_length=255)
@@ -159,7 +160,7 @@ class AddSubprojectInput(BaseModel):
     public: Optional[bool] = Field(None, description="Whether subproject is public")
 
 
-class UpdateProjectInput(BaseModel):
+class UpdateProjectInput(CoercibleModel):
     """Input model for updating projects."""
     project_id: int = Field(..., description="Project ID to update", gt=0)
     name: Optional[str] = Field(None, description="New project name", min_length=1, max_length=255)

@@ -1,12 +1,13 @@
 """Work package relation management tools (follows, blocks, relates, etc.)."""
 
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import Field
 from src.server import mcp, get_client
+from src.utils.inputs import CoercibleModel
 from src.utils.formatting import format_success, format_error
 
 
-class CreateRelationInput(BaseModel):
+class CreateRelationInput(CoercibleModel):
     """Input model for creating work package relations."""
     from_id: int = Field(..., description="Source work package ID", gt=0)
     to_id: int = Field(..., description="Target work package ID", gt=0)
@@ -15,7 +16,7 @@ class CreateRelationInput(BaseModel):
     description: Optional[str] = Field(None, description="Relation description")
 
 
-class UpdateRelationInput(BaseModel):
+class UpdateRelationInput(CoercibleModel):
     """Input model for updating work package relations."""
     relation_id: int = Field(..., description="Relation ID to update", gt=0)
     lag: Optional[int] = Field(None, description="New lag in working days")

@@ -3,9 +3,10 @@
 import json
 from typing import Optional
 from datetime import datetime, timedelta
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from src.server import mcp, get_client
+from src.utils.inputs import CoercibleModel
 from src.utils.formatting import format_success, format_error
 from src.utils.report_formatter import (
     format_weekly_report_markdown,
@@ -13,7 +14,7 @@ from src.utils.report_formatter import (
 )
 
 
-class GenerateWeeklyReportInput(BaseModel):
+class GenerateWeeklyReportInput(CoercibleModel):
     """Input model for generating weekly reports."""
     project_id: int = Field(..., description="Project ID to generate report for", gt=0)
     from_date: str = Field(..., description="Report start date (YYYY-MM-DD)")
@@ -23,7 +24,7 @@ class GenerateWeeklyReportInput(BaseModel):
     format: str = Field("markdown", description="Output format: 'markdown' or 'json'")
 
 
-class GetReportDataInput(BaseModel):
+class GetReportDataInput(CoercibleModel):
     """Input model for getting raw report data."""
     project_id: int = Field(..., description="Project ID", gt=0)
     from_date: str = Field(..., description="Start date (YYYY-MM-DD)")

@@ -2,9 +2,10 @@
 
 import json
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from src.server import mcp, get_client
+from src.utils.inputs import CoercibleModel
 from src.utils.formatting import (
     format_news_list,
     format_news_detail,
@@ -18,7 +19,7 @@ from src.utils.formatting import (
 # ============================================================
 
 
-class CreateNewsInput(BaseModel):
+class CreateNewsInput(CoercibleModel):
     """Input model for creating news."""
 
     project_id: int = Field(..., description="Project ID", gt=0)
@@ -29,7 +30,7 @@ class CreateNewsInput(BaseModel):
     description: str = Field(..., description="Main content (supports Markdown)")
 
 
-class UpdateNewsInput(BaseModel):
+class UpdateNewsInput(CoercibleModel):
     """Input model for updating news."""
 
     news_id: int = Field(..., description="News ID to update", gt=0)

@@ -20,7 +20,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "fastmcp>=2.0.0",
+    "fastmcp>=2.0.0,<3",  # 2.x tool API (@mcp.tool -> FunctionTool.fn); 3.x changes this
     "mcp>=1.0.0",
     "aiohttp>=3.8.0",
     "python-dotenv>=1.0.0",
@@ -33,6 +33,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
     "black>=22.0.0",
     "flake8>=4.0.0",
 ]
@@ -51,3 +52,7 @@ target-version = ['py38']
 [tool.flake8]
 max-line-length = 88
 extend-ignore = ["E203", "W503"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

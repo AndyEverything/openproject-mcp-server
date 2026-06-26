@@ -1,12 +1,13 @@
 """Version/milestone management tools."""
 
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import Field
 from src.server import mcp, get_client
+from src.utils.inputs import CoercibleModel
 from src.utils.formatting import format_success, format_error
 
 
-class CreateVersionInput(BaseModel):
+class CreateVersionInput(CoercibleModel):
     """Input model for creating versions."""
     project_id: int = Field(..., description="Project ID", gt=0)
     name: str = Field(..., description="Version name", min_length=1, max_length=255)
