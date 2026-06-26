@@ -1395,3 +1395,214 @@ class OpenProjectClient:
         await self._request("DELETE", f"/news/{news_id}")
         return True
 
+    # ------------------------------------------------------------------
+    # Attachments
+    # ------------------------------------------------------------------
+
+    async def list_work_package_attachments(self, work_package_id: int) -> Dict:
+        """
+        List attachments of a work package.
+
+        Args:
+            work_package_id: The work package ID
+
+        Returns:
+            Dict: Collection of attachment resources
+        """
+        return await self._request(
+            "GET", f"/work_packages/{work_package_id}/attachments"
+        )
+
+    async def get_attachment(self, attachment_id: int) -> Dict:
+        """
+        Retrieve a single attachment's metadata.
+
+        Args:
+            attachment_id: The attachment ID
+
+        Returns:
+            Dict: Attachment metadata
+        """
+        return await self._request("GET", f"/attachments/{attachment_id}")
+
+    async def delete_attachment(self, attachment_id: int) -> bool:
+        """
+        Delete an attachment.
+
+        Args:
+            attachment_id: The attachment ID
+
+        Returns:
+            bool: True if successful
+        """
+        await self._request("DELETE", f"/attachments/{attachment_id}")
+        return True
+
+    async def download_attachment(self, attachment_id: int) -> Dict:
+        """
+        Download an attachment's binary content.
+
+        The ``/attachments/{id}/content`` endpoint usually answers with a redirect
+        to the real storage location (local disk or external object storage). The
+        redirect is followed manually so that the ``Authorization`` header is not
+        forwarded to third-party storage, which would otherwise reject the request.
+
+        Args:
+            attachment_id: The attachment ID
+
+        Returns:
+            Dict with keys ``content`` (bytes), ``file_name`` (str) and
+            ``content_type`` (str).
+        """
+        # Fetch metadata first to learn the file name and content type.
+        meta = await self.get_attachment(attachment_id)
+        file_name = meta.get("fileName", f"attachment-{attachment_id}")
+        content_type = meta.get("contentType", "application/octet-stream")
+
+        url = f"{self.base_url}/api/v3/attachments/{attachment_id}/content"
+
+        ssl_context = ssl.create_default_context()
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        timeout = aiohttp.ClientTimeout(total=120)
+
+        async with aiohttp.ClientSession(
+            connector=connector, timeout=timeout
+        ) as session:
+            request_params = {
+                "method": "GET",
+                "url": url,
+                "headers": self.headers,
+                "allow_redirects": False,
+            }
+            if self.proxy:
+                request_params["proxy"] = self.proxy
+
+            try:
+                async with session.request(**request_params) as response:
+                    if response.status in (301, 302, 303, 307, 308):
+                        location = response.headers.get("Location")
+                        if not location:
+                            raise Exception(
+                                "Attachment content redirect is missing a Location header"
+                            )
+                        # Follow the redirect WITHOUT auth headers (external storage).
+                        redirect_params = {
+                            "method": "GET",
+                            "url": location,
+                            "allow_redirects": True,
+                        }
+                        if self.proxy:
+                            redirect_params["proxy"] = self.proxy
+                        async with session.request(**redirect_params) as redirected:
+                            if redirected.status >= 400:
+                                raise Exception(
+                                    self._format_error_message(
+                                        redirected.status, await redirected.text()
+                                    )
+                                )
+                            content = await redirected.read()
+                    elif response.status >= 400:
+                        raise Exception(
+                            self._format_error_message(
+                                response.status, await response.text()
+                            )
+                        )
+                    else:
+                        content = await response.read()
+            except aiohttp.ClientError as e:
+                logger.error(f"Network error: {str(e)}")
+                raise Exception(f"Network error accessing {url}: {str(e)}")
+
+        return {
+            "content": content,
+            "file_name": file_name,
+            "content_type": content_type,
+        }
+
+    async def upload_attachment(
+        self,
+        work_package_id: int,
+        file_content: bytes,
+        file_name: str,
+        description: Optional[str] = None,
+        content_type: Optional[str] = None,
+    ) -> Dict:
+        """
+        Upload a file as an attachment to a work package (multipart/form-data).
+
+        Args:
+            work_package_id: The work package ID
+            file_content: Raw bytes of the file
+            file_name: File name to store in OpenProject
+            description: Optional attachment description
+            content_type: Optional MIME type of the file
+
+        Returns:
+            Dict: The created attachment resource
+        """
+        url = f"{self.base_url}/api/v3/work_packages/{work_package_id}/attachments"
+
+        metadata: Dict[str, Any] = {"fileName": file_name}
+        if description:
+            metadata["description"] = {"raw": description}
+
+        form = aiohttp.FormData()
+        form.add_field(
+            "metadata", json.dumps(metadata), content_type="application/json"
+        )
+        form.add_field(
+            "file",
+            file_content,
+            filename=file_name,
+            content_type=content_type or "application/octet-stream",
+        )
+
+        # For multipart we must NOT send the JSON Content-Type header; aiohttp sets
+        # the multipart boundary itself. Keep auth/accept/user-agent only.
+        headers = {
+            "Authorization": self.headers["Authorization"],
+            "Accept": "application/json",
+            "User-Agent": self.headers["User-Agent"],
+        }
+
+        ssl_context = ssl.create_default_context()
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        timeout = aiohttp.ClientTimeout(total=120)
+
+        async with aiohttp.ClientSession(
+            connector=connector, timeout=timeout
+        ) as session:
+            request_params = {
+                "method": "POST",
+                "url": url,
+                "headers": headers,
+                "data": form,
+            }
+            if self.proxy:
+                request_params["proxy"] = self.proxy
+
+            try:
+                async with session.request(**request_params) as response:
+                    response_text = await response.text()
+                    try:
+                        response_json = (
+                            json.loads(response_text) if response_text else {}
+                        )
+                    except json.JSONDecodeError:
+                        logger.error(
+                            f"Invalid JSON response: {response_text[:200]}..."
+                        )
+                        response_json = {}
+
+                    if response.status >= 400:
+                        raise Exception(
+                            self._format_error_message(
+                                response.status, response_text
+                            )
+                        )
+
+                    return response_json
+            except aiohttp.ClientError as e:
+                logger.error(f"Network error: {str(e)}")
+                raise Exception(f"Network error accessing {url}: {str(e)}")
+

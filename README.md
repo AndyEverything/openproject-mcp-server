@@ -840,6 +840,56 @@ Get detailed information about a specific work package relation.
 **Parameters:**
 - `relation_id` (integer, required): Relation ID
 
+#### 41. `list_attachments`
+List all attachments of a work package.
+
+**Parameters:**
+- `work_package_id` (integer, required): The work package ID
+
+**Example:**
+```
+List attachments of work package 1024
+```
+
+#### 42. `get_attachment`
+Get metadata for a single attachment.
+
+**Parameters:**
+- `attachment_id` (integer, required): The attachment ID
+
+#### 43. `download_attachment`
+Download an attachment's content. Text content is returned inline; binary content is saved to disk when `save_path` is provided. Redirects to external storage are followed without forwarding the API credentials.
+
+**Parameters:**
+- `attachment_id` (integer, required): The attachment ID
+- `save_path` (string, optional): File or directory path to save the content to
+- `max_inline_chars` (integer, optional): Max characters returned inline for text (default: 50000)
+
+**Example:**
+```
+Download attachment 577 and save it to /tmp
+```
+
+#### 44. `upload_attachment`
+Upload a local file as an attachment to a work package (multipart/form-data).
+
+**Parameters:**
+- `work_package_id` (integer, required): The work package ID
+- `file_path` (string, required): Absolute path to the local file to upload
+- `file_name` (string, optional): Override the stored file name
+- `description` (string, optional): Attachment description
+
+**Example:**
+```
+Upload /path/to/report.pdf to work package 1024
+```
+
+#### 45. `delete_attachment`
+Delete an attachment.
+
+**Parameters:**
+- `attachment_id` (integer, required): The attachment ID
+
 ## Development
 
 ### Setting up Development Environment
