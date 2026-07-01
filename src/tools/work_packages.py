@@ -54,6 +54,7 @@ async def list_work_packages(
     type_ids: Optional[str] = None,
     status_ids: Optional[str] = None,
     version_ids: Optional[str] = None,
+    sprint_ids: Optional[str] = None,
     
     # NEW: Date filters
     due_before: Optional[str] = None,  # YYYY-MM-DD
@@ -72,7 +73,8 @@ async def list_work_packages(
     # NEW: Additional filters
     author_id: Optional[int] = None,
     parent_id: Optional[int] = None,
-    no_parent_only: bool = False
+    no_parent_only: bool = False,
+    backlog_only: bool = False,
 ) -> str:
     """List work packages (tasks) with advanced filtering - CRITICAL tool for flexible task search.
     
@@ -92,6 +94,7 @@ async def list_work_packages(
         type_ids: Comma-separated type IDs (e.g., "1,2" for bugs+features)
         status_ids: Comma-separated status IDs (overrides active_only if provided)
         version_ids: Comma-separated version/sprint IDs
+        sprint_ids: Comma-separated sprint IDs (e.g., "5,6"); filters by sprint assignment
         
         # Date filters
         due_before: Due date before this date (YYYY-MM-DD format)
@@ -111,6 +114,7 @@ async def list_work_packages(
         author_id: Filter by task creator/author
         parent_id: Filter by parent work package ID (child tasks)
         no_parent_only: If True, only show top-level tasks (no parent)
+        backlog_only: If True, only show work packages NOT assigned to any sprint (product backlog)
     
     Returns:
         Formatted list of work packages matching all specified filters
@@ -186,7 +190,16 @@ async def list_work_packages(
             version_list = [v.strip() for v in version_ids.split(",") if v.strip()]
             if version_list:
                 filters_list.append({"version": {"operator": "=", "values": version_list}})
-        
+
+        # === SPRINT FILTER ===
+        if backlog_only:
+            # Product backlog: work packages not assigned to any sprint
+            filters_list.append({"sprint": {"operator": "!*", "values": []}})
+        elif sprint_ids:
+            sprint_list = [s.strip() for s in sprint_ids.split(",") if s.strip()]
+            if sprint_list:
+                filters_list.append({"sprint": {"operator": "=", "values": sprint_list}})
+
         # === DATE FILTERS ===
         # Overdue filter (special case)
         if overdue_only:
@@ -393,6 +406,8 @@ async def create_work_package(
     status_id: Optional[int] = None,
     start_date: Optional[str] = None,
     due_date: Optional[str] = None,
+    sprint_id: Optional[int] = None,
+    story_points: Optional[int] = None,
 ) -> str:
     """Create a new work package (task) - CRITICAL tool for creating tasks.
 
@@ -405,10 +420,12 @@ async def create_work_package(
         description: Detailed description (plain text)
         priority_id: Priority ID (use list_priorities to see available priorities)
         assignee_id: Assignee user ID (use list_users to find users)
-        version_id: Version/sprint ID to assign the work package to
+        version_id: Version/milestone ID to associate the work package with
         status_id: Initial status ID (use list_statuses to see available statuses)
         start_date: Start date in ISO format (YYYY-MM-DD)
         due_date: Due date in ISO format (YYYY-MM-DD)
+        sprint_id: Sprint ID to assign the work package to (use list_sprints to find IDs)
+        story_points: Story point estimate for agile planning (positive integer)
 
     Returns:
         Success message with created work package ID and details
@@ -438,6 +455,10 @@ async def create_work_package(
             data["startDate"] = start_date
         if due_date:
             data["dueDate"] = due_date
+        if sprint_id:
+            data["sprint_id"] = sprint_id
+        if story_points is not None:
+            data["story_points"] = story_points
 
         # Create work package
         result = await client.create_work_package(data)
@@ -464,6 +485,12 @@ async def create_work_package(
             text += f"**Start Date**: {result['startDate']}\n"
         if result.get('dueDate'):
             text += f"**Due Date**: {result['dueDate']}\n"
+        if result.get('storyPoints') is not None:
+            text += f"**Story Points**: {result['storyPoints']}\n"
+
+        sprint_link = result.get("_links", {}).get("sprint", {})
+        if sprint_link and sprint_link.get("title"):
+            text += f"**Sprint**: {sprint_link['title']}\n"
 
         return text
 
@@ -484,11 +511,14 @@ async def update_work_package(
     version_id: Optional[int] = None,
     start_date: Optional[str] = None,
     due_date: Optional[str] = None,
+    sprint_id: Optional[int] = None,
+    remove_from_sprint: bool = False,
+    story_points: Optional[int] = None,
 ) -> str:
     """Update an existing work package (task) - CRITICAL tool for updating tasks.
 
     This is one of the most important tools for updating work items,
-    including changing status, assignee, dates, and progress.
+    including changing status, assignee, dates, progress, and sprint assignment.
 
     Args:
         work_package_id: ID of the work package to update
@@ -499,9 +529,12 @@ async def update_work_package(
         priority_id: New priority ID (use list_priorities to see available priorities)
         assignee_id: New assignee user ID (use list_users to find users)
         percentage_done: Progress percentage (0-100)
-        version_id: Version/sprint ID to assign the work package to
+        version_id: Version/milestone ID to associate the work package with
         start_date: Start date in ISO format (YYYY-MM-DD)
         due_date: Due date in ISO format (YYYY-MM-DD)
+        sprint_id: Sprint ID to move the work package into (use list_sprints to find IDs)
+        remove_from_sprint: If True, removes the work package from its current sprint (returns it to backlog)
+        story_points: Story point estimate for agile planning (positive integer)
 
     Returns:
         Success message with updated work package details
@@ -532,6 +565,12 @@ async def update_work_package(
             data["startDate"] = start_date
         if due_date is not None:
             data["dueDate"] = due_date
+        if remove_from_sprint:
+            data["sprint_id"] = None
+        elif sprint_id is not None:
+            data["sprint_id"] = sprint_id
+        if story_points is not None:
+            data["story_points"] = story_points
 
         if not data:
             return format_error("No fields provided to update")
@@ -563,6 +602,14 @@ async def update_work_package(
             text += f"**Due Date**: {result['dueDate']}\n"
         if 'percentageDone' in result:
             text += f"**Progress**: {result['percentageDone']}%\n"
+        if result.get('storyPoints') is not None:
+            text += f"**Story Points**: {result['storyPoints']}\n"
+
+        sprint_link = result.get("_links", {}).get("sprint", {})
+        if sprint_link and sprint_link.get("title"):
+            text += f"**Sprint**: {sprint_link['title']}\n"
+        elif sprint_link is not None and not sprint_link:
+            text += f"**Sprint**: (removed from sprint)\n"
 
         return text
 
