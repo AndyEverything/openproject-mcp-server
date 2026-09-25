@@ -1,0 +1,17 @@
+{
+  "_type": "Version",
+  "id": 3236,
+  "name": "Sprint 42",
+  "description": {"format": "plain", "raw": "Cel sprintu: **eksport**", "html": "<p>Cel sprintu</p>"},
+  "startDate": "2026-09-01",
+  "endDate": "2026-09-14",
+  "status": "open",
+  "sharing": "system",
+  "createdAt": "2026-08-20T08:00:00.000Z",
+  "updatedAt": "2026-09-01T08:00:00.000Z",
+  "_links": {
+    "self": {"href": "/api/v3/versions/3236", "title": "Sprint 42"},
+    "definingProject": {"href": "/api/v3/projects/21", "title": "Projekt Alfa"},
+    "availableInProjects": {"href": "/api/v3/versions/3236/projects"}
+  }
+}

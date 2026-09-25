@@ -1,0 +1,27 @@
+{
+  "_type": "Collection",
+  "total": 1,
+  "count": 1,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "FileLink",
+        "id": 1337,
+        "originData": {
+          "id": "5503",
+          "name": "specyfikacja.pdf",
+          "mimeType": "application/pdf",
+          "size": 20480,
+          "lastModifiedAt": "2026-09-01T10:00:00Z"
+        },
+        "_links": {
+          "self": {"href": "/api/v3/file_links/1337"},
+          "storage": {"href": "/api/v3/storages/2", "title": "Nextcloud"},
+          "originOpen": {"href": "https://cloud.example.test/index.php/f/5503"},
+          "staticOriginOpen": {"href": "/api/v3/file_links/1337/open"}
+        }
+      }
+    ]
+  },
+  "_links": {"self": {"href": "/api/v3/work_packages/1234/file_links"}}
+}

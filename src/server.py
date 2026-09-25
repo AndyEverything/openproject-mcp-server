@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 
 from src.client import OpenProjectClient
+from src.utils.safety import WRITE_TOOLS, is_read_only_enabled
 
 # Load environment variables
 load_dotenv()
@@ -75,12 +76,34 @@ try:
     from src.tools import hierarchy       # 3 tools: set_parent, remove_parent, list_children
     from src.tools import relations       # 5 tools: create, list, get, update, delete
     from src.tools import time_entries    # 5 tools: list, create, update, delete, list_activities
-    from src.tools import versions        # 2 tools: list, create
+    from src.tools import versions        # 5 tools: list, create, get, list_version_work_packages, update
     from src.tools import weekly_reports   # 4 tools: generate_weekly_report, get_report_data, generate_this_week_report, generate_last_week_report
     from src.tools import news             # 5 tools: list_news, create_news, get_news, update_news, delete_news
 
-    logger.info("✅ All 49 tool modules loaded successfully")
+    # Agent context tools
+    from src.tools import context
+    from src.tools import watchers
+    from src.tools import attachments
+    from src.tools import discovery
+    from src.tools import integrations
+    from src.tools import prompts
+
+    logger.info("✅ All tool modules loaded successfully")
 except ImportError as e:
     logger.warning(f"⚠️  Some tool modules failed to import: {e}")
     raise
+
+
+def _registered_tool_names() -> set[str]:
+    """Names of registered tools (synchronous; mcp.get_tools() is async)."""
+    return set(mcp._tool_manager._tools.keys())
+
+
+if is_read_only_enabled():
+    removed = sorted(WRITE_TOOLS & _registered_tool_names())
+    for tool_name in removed:
+        mcp.remove_tool(tool_name)
+    logger.info(f"🔒 Read-only mode: removed {len(removed)} write tool(s)")
+
+logger.info(f"   Registered tools: {len(_registered_tool_names())}")
 

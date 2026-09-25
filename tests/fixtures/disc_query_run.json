@@ -1,0 +1,50 @@
+{
+  "_type": "Query",
+  "id": 2630,
+  "name": "Do testów",
+  "starred": true,
+  "public": true,
+  "filters": [
+    {
+      "_type": "StatusQueryFilter",
+      "name": "Status",
+      "_links": {
+        "filter": {"href": "/api/v3/queries/filters/status", "title": "Status"},
+        "operator": {"href": "/api/v3/queries/operators/%3D", "title": "jest (OR)"},
+        "values": [{"href": "/api/v3/statuses/13", "title": "To test"}]
+      }
+    }
+  ],
+  "_embedded": {
+    "results": {
+      "_type": "WorkPackageCollection",
+      "total": 54,
+      "count": 1,
+      "pageSize": 5,
+      "offset": 2,
+      "_embedded": {
+        "elements": [
+          {
+            "_type": "WorkPackage",
+            "id": 77725,
+            "subject": "Dostosowanie do niestandardowego skalowania",
+            "dueDate": null,
+            "percentageDone": 90,
+            "_links": {
+              "status": {"href": "/api/v3/statuses/13", "title": "To test"},
+              "type": {"href": "/api/v3/types/1", "title": "Task"},
+              "priority": {"href": "/api/v3/priorities/2", "title": "Normal"},
+              "project": {"href": "/api/v3/projects/118", "title": "Projekt Beta"},
+              "assignee": {"href": "/api/v3/users/172", "title": "Wiśniewska Ewa"}
+            }
+          }
+        ]
+      }
+    }
+  },
+  "_links": {
+    "self": {"href": "/api/v3/queries/2630", "title": "Do testów"},
+    "project": {"href": "/api/v3/projects/21", "title": "Projekt Alfa"},
+    "results": {"href": "/api/v3/projects/wydra/work_packages?offset=2&pageSize=5"}
+  }
+}

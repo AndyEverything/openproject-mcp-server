@@ -1,6 +1,4 @@
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/andyeverything-openproject-mcp-server-badge.png)](https://mseep.ai/app/andyeverything-openproject-mcp-server)
-
-<br>![status](https://img.shields.io/badge/status-WIP-yellow) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)<br><br>⚠️ This is an early-stage project. Do not use it productively – contributions welcome!<br>
+![status](https://img.shields.io/badge/status-WIP-yellow) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)<br><br>⚠️ This is an early-stage project. Do not use it productively – contributions welcome!<br>
 
 # OpenProject MCP Server
 
@@ -16,6 +14,18 @@ A Model Context Protocol (MCP) server that provides seamless integration with [O
 - 🌐 **Proxy Support**: Optional HTTP proxy configuration
 - 🚀 **Async Operations**: Built with modern async/await patterns
 - 📊 **Comprehensive Logging**: Configurable logging levels
+
+### 🤖 Agent Context Tools (for Claude Code and other coding agents)
+
+- 🧠 **Full work package context in one call**: untruncated description, custom fields by name, full comments, attachments, relations and hierarchy ([details](#agent-context-tools-))
+- 🖼️ **Screenshots the model can actually see**: images embedded in a description or attached to a work package are returned as viewable image content, automatically downscaled if too large
+- 💬 **Complete comment history**: no more 150-character truncation – full comments, internal-comment markers and readable field-change history
+- 📎 **Attachment handling by type**: images viewable inline, text files (JSON/CSV/logs/…) returned inline, everything else (PDF, DOCX, …) saved to a local folder – with path-safe file names
+- 🔍 **Better work discovery**: your own open tasks, full-text search across subject + description + comments, saved views (queries), unread notifications, version/sprint scope
+- 🔗 **Code & file links**: GitHub PRs, GitLab MRs/issues and external file links attached to a work package
+- 🔒 **Read-only mode** (`OPENPROJECT_READ_ONLY=true`): removes every write tool, so an agent session can only read
+- 📄 **JSON output** (`format="json"`) on every new read tool, for programmatic use
+- 🧩 **MCP resource & prompts**: attach `openproject://work-packages/{id}` to a conversation, or use the `plan_work_package` / `summarize_work_package` prompts
 
 ## Prerequisites
 
@@ -90,6 +100,18 @@ OPENPROJECT_API_KEY=your-api-key-here
 | `OPENPROJECT_PROXY` | No | HTTP proxy URL if needed | `http://proxy.company.com:8080` |
 | `LOG_LEVEL` | No | Logging level (DEBUG, INFO, WARNING, ERROR) | `INFO` |
 | `TEST_CONNECTION_ON_STARTUP` | No | Test API connection when server starts | `true` |
+
+### Optional Configuration Variables
+
+All of the following variables are optional – an existing configuration with only `OPENPROJECT_URL` and `OPENPROJECT_API_KEY` keeps working unchanged.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OPENPROJECT_READ_ONLY` | not set (off) | `true` / `1` / `yes` (case-insensitive) starts the server in **read-only mode**: every tool that modifies data in OpenProject (create/update/delete, comments, assignments, uploads, watchers, relations, hierarchy, memberships, time entries, news, projects, versions) is not registered. Recommended for agent sessions. |
+| `OPENPROJECT_CACHE_TTL` | `600` | Lifetime (seconds) of the in-memory cache for statuses, types, priorities, work package schemas (custom fields) and the current user. `0` disables the cache. Work packages themselves are never cached. |
+| `OPENPROJECT_ATTACHMENTS_DIR` | `<system temp>/openproject-attachments` | Directory where downloaded attachments that cannot be returned inline (e.g. PDF, DOCX, large text files) are saved. Files are never executed. |
+
+> **Rule for contributors:** every new tool that writes to OpenProject **MUST** be added to `WRITE_TOOLS` in `src/utils/safety.py`. Otherwise it stays available in read-only mode. `tests/test_safety.py` fails for any registered tool whose name starts with `create_`, `update_`, `delete_`, `add_`, `remove_`, `set_`, `assign_`, `unassign_` or `upload_` and is missing from `WRITE_TOOLS`; write tools with other names must be added by hand (check this in code review).
 
 ### Getting an API Key
 
@@ -390,6 +412,7 @@ Search work packages by subject or ID using server-side filtering.
 - `active_only` (boolean, optional): Search only open work packages (default: true)
 - `offset` (integer, optional): Starting index for pagination (default: 0)
 - `page_size` (integer, optional): Number of results per page (default: 20, max: 100)
+- `full_text` (boolean, optional): Also search description and comments (default: false) – see [Agent Context Tools](#agent-context-tools-)
 
 **Example:**
 ```
@@ -454,10 +477,13 @@ List all available work package statuses.
 List all available work package priorities.
 
 #### 12. `get_work_package`
-Get detailed information about a specific work package.
+Get full details of a work package, including the untruncated description and custom fields by name.
 
 **Parameters:**
 - `work_package_id` (integer, required): Work package ID
+- `format` (string, optional): `markdown` (default) or `json`
+
+See [Agent Context Tools](#agent-context-tools-) for `get_work_package_context`, attachments, notifications, saved views and more.
 
 #### 13. `update_work_package`
 Update an existing work package.
@@ -840,6 +866,78 @@ Get detailed information about a specific work package relation.
 **Parameters:**
 - `relation_id` (integer, required): Relation ID
 
+## Agent Context Tools 🤖
+
+Tools designed for coding agents (e.g. Claude Code) working on OpenProject tasks. All new read tools accept `format="markdown"` (default) or `format="json"` – JSON contains the same data. Write tools are marked ✏️ and are removed in read-only mode (`OPENPROJECT_READ_ONLY=true`).
+
+### Work package context
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `get_work_package` | Full details of a single work package: subject, type, status, priority, project, assignee, responsible, author, version, dates, progress, parent, custom fields (by schema name, human-readable values) and the complete, untruncated description (raw markdown). | `work_package_id` (int), `format` |
+| `get_work_package_context` | Everything an agent needs in one call: details + custom fields, full comments, attachment list (metadata only), relations, hierarchy (parent + children) and IDs of images referenced in the description (fetch them with `get_attachment`). Sections are fetched in parallel; a failing section (e.g. 403) is reported inline and does not break the others. | `work_package_id` (int), `include_comments`, `include_attachments`, `include_relations`, `include_hierarchy` (bool, default `true`), `format` |
+| `get_allowed_statuses` | Statuses the current user may set on the work package according to the workflow; the current status is marked. Read-only (uses the form endpoint with the current `lockVersion`, nothing is saved). | `work_package_id` (int), `format` |
+| `list_work_package_activities` | Activity history with full comments (no truncation), author, date, internal-comment marker and every field change as readable text. | `work_package_id` (int), `comments_only` (bool, default `false`) |
+
+### Watchers
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `list_watchers` | Users watching a work package (ID and name). | `work_package_id` (int), `format` |
+| `add_watcher` ✏️ | Add a user as a watcher. | `work_package_id` (int), `user_id` (int) |
+| `remove_watcher` ✏️ | Remove a user from the watchers. | `work_package_id` (int), `user_id` (int) |
+
+### Attachments
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `list_work_package_attachments` | Attachments of a work package: ID, file name, MIME type, size, author, date, description (size also in bytes in JSON). | `work_package_id` (int), `format` |
+| `get_attachment` | Returns an attachment in the most useful form for the model: images as viewable image content, text as text, other files saved to a local directory (see below). | `attachment_id` (int), `max_dimension` (64–4096, default 1600) |
+| `upload_attachment` ✏️ | Uploads a local file (max 25 MB) as a work package attachment and returns the new attachment ID. | `work_package_id` (int), `file_path` (str), `description` (str, optional) |
+
+**How `get_attachment` handles file types**
+
+- **Images** (`image/png`, `image/jpeg`, `image/gif`, `image/webp`) are returned as MCP image content with a short text summary (original → returned dimensions and size). Images whose longer side exceeds `max_dimension` or whose size exceeds ~750 KB are proportionally downscaled with Pillow; if still too large, they are re-encoded as JPEG with decreasing quality. For GIFs only the first frame is returned (as PNG). Without Pillow, images up to ~750 KB are returned unscaled and larger ones are saved to disk.
+- **Text** (`text/*`, JSON, XML, YAML, and `.md`, `.csv`, `.log`, `.yml`, `.yaml`, `.json`, `.xml`, `.txt` when the MIME type is `application/octet-stream`) up to 200 KB is returned inline as UTF-8 in a code block.
+- **Everything else** (PDF, DOCX, archives, executables, text over 200 KB) is saved to `OPENPROJECT_ATTACHMENTS_DIR` (default `<system temp>/openproject-attachments`) as `{attachment_id}_{sanitized_file_name}`; the response contains the full path, name, size and MIME type. Downloads larger than 25 MB are rejected.
+
+**Security:** file names are sanitized (path components such as `../` and `..\` are stripped, `<>:"/\|?*` and control characters removed, max 150 characters) and the resolved path must stay inside the attachments directory. Saved files are **never opened or executed** by the server. When a download redirects to another host (e.g. an S3 presigned URL), the API key is not sent to that host. `upload_attachment` validates the local file before any request is sent – it can upload any file readable by the server process, so use read-only mode for agents that must not write.
+
+### Work discovery
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `list_my_work_packages` | Work packages assigned to the API key owner (no user ID needed); open only by default. | `project_id?`, `include_closed=false`, `offset=1` (page, 1-based), `page_size=20` (max 100), `format` |
+| `list_work_packages` | *(new parameter)* `assigned_to_me=true` limits results to your own tasks; cannot be combined with `assignee_id` / `unassigned_only`. | `assigned_to_me=false` + existing filters |
+| `search_work_packages` | *(new parameter)* `full_text=true` searches subject, description and comments instead of subject/ID only. | `query`, `full_text=false` + existing parameters |
+| `list_queries` | Saved work package views (queries): name, ID, project, public, starred. | `project_id?`, `format` |
+| `run_query` | Runs a saved view with its own filters and sort order; returns the view name, total and a page of work packages. | `query_id`, `offset=1`, `page_size=20`, `format` |
+| `list_notifications` | Your in-app notifications (reason, actor, date, work package ID + subject, project). Read only – never marks them as read. | `unread_only=true`, `reason?` (mentioned, assigned, responsible, watched, subscribed, commented, created, processed, prioritized, scheduled, dateAlert, shared, reminder), `offset=1`, `page_size=20`, `format` |
+
+### Versions / sprints
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `get_version` | Version details: name, description, status, start/end date, sharing, defining project. | `version_id`, `format` |
+| `list_version_work_packages` | Work packages assigned to a version (sprint scope), all statuses by default. Queried within the version's defining project and its subprojects (OpenProject 15 rejects the version filter on the global endpoint); for versions shared as `hierarchy`, `tree` or `system` the response includes a `scope_note` warning. | `version_id`, `include_closed=true`, `offset=1`, `page_size=20`, `format` |
+| `update_version` ✏️ | Updates only the provided fields of a version. | `version_id`, `name?`, `description?`, `status?` (open, locked, closed), `start_date?`, `end_date?` (YYYY-MM-DD), `sharing?` (none, descendants, hierarchy, tree, system) |
+
+### Code & file integrations
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `list_work_package_code_links` | Items linked to a work package, one section per source: GitHub pull requests, GitLab merge requests, GitLab issues and file links (external storages such as Nextcloud/OneDrive). Each item has title, state and URL, plus number/repository/author for code and storage/MIME type/size for files. A source is marked **unavailable** if the work package has no matching `_links` entry (no request is sent) or the endpoint returns 403/404 (module disabled or missing permission); the other sources are still returned. | `work_package_id` (int), `format` |
+
+### MCP resources and prompts
+
+| Name | Kind | Description |
+|------|------|-------------|
+| `openproject://work-packages/{work_package_id}` | resource | Aggregated work package context (same content as `get_work_package_context`) as markdown – attach it to a conversation, e.g. `openproject://work-packages/123`. |
+| `plan_work_package(work_package_id)` | prompt | Tells the model to first call `get_work_package_context`, then `get_attachment` for images referenced in the description and `list_work_package_code_links`, and to produce an implementation plan: goal, steps, open questions, risks and acceptance criteria. |
+| `summarize_work_package(work_package_id)` | prompt | Same context-gathering steps, then a concise summary: goal, current state, recent decisions from comments, and blockers. |
+
+Prompts contain instructions only and make no API calls themselves; prompt arguments arrive as strings over MCP and are converted to integers automatically.
+
 ## Development
 
 ### Setting up Development Environment
@@ -855,8 +953,11 @@ uv pip install -e ".[dev]"
 ### Running Tests
 
 ```bash
-uv run pytest tests/
+uv sync --extra dev
+uv run pytest
 ```
+
+Unit tests live in `tests/` and run without a live OpenProject instance (HTTP is mocked with `aioresponses`). The `test_*.py` scripts in the repository root require a live instance and are not collected by `pytest`.
 
 ### Code Formatting
 

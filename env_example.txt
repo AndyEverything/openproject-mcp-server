@@ -17,3 +17,13 @@ LOG_LEVEL=INFO
 
 # Optional: Test connection on startup (true/false)
 TEST_CONNECTION_ON_STARTUP=true
+
+# Optional: Read-only mode - write tools are not registered (true/1/yes)
+OPENPROJECT_READ_ONLY=false
+
+# Optional: Cache TTL in seconds for statuses, types, priorities and schemas (0 disables)
+OPENPROJECT_CACHE_TTL=600
+
+# Optional: Directory for downloaded attachments that cannot be returned inline
+# Default: <system temp>/openproject-attachments
+OPENPROJECT_ATTACHMENTS_DIR=

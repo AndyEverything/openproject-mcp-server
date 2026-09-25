@@ -1,0 +1,62 @@
+{
+  "_type": "Collection",
+  "total": 2,
+  "count": 2,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "WorkPackage",
+        "id": 1240,
+        "subject": "Podzadanie A",
+        "lockVersion": 1,
+        "_links": {
+          "self": {
+            "href": "/api/v3/work_packages/1240",
+            "title": "Podzadanie A"
+          },
+          "type": {
+            "href": "/api/v3/types/1",
+            "title": "Task"
+          },
+          "status": {
+            "href": "/api/v3/statuses/1",
+            "title": "New"
+          },
+          "parent": {
+            "href": "/api/v3/work_packages/1234",
+            "title": "Zadanie testowe"
+          }
+        }
+      },
+      {
+        "_type": "WorkPackage",
+        "id": 1241,
+        "subject": "Podzadanie B",
+        "lockVersion": 1,
+        "_links": {
+          "self": {
+            "href": "/api/v3/work_packages/1241",
+            "title": "Podzadanie B"
+          },
+          "type": {
+            "href": "/api/v3/types/1",
+            "title": "Task"
+          },
+          "status": {
+            "href": "/api/v3/statuses/1",
+            "title": "In progress"
+          },
+          "parent": {
+            "href": "/api/v3/work_packages/1234",
+            "title": "Zadanie testowe"
+          }
+        }
+      }
+    ]
+  },
+  "_links": {
+    "self": {
+      "href": "/api/v3/work_packages"
+    }
+  }
+}

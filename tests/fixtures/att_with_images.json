@@ -1,0 +1,182 @@
+{
+  "_type": "Collection",
+  "total": 4,
+  "count": 4,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "Attachment",
+        "id": 131868,
+        "fileName": "image.png",
+        "fileSize": 606425,
+        "description": {
+          "format": "plain",
+          "raw": "Zrzut ekranu błędu",
+          "html": ""
+        },
+        "status": "uploaded",
+        "contentType": "image/png",
+        "digest": {
+          "algorithm": "md5",
+          "hash": "20638a8ecb0549afee41ad54573b1a38"
+        },
+        "createdAt": "2024-11-29T16:11:24.645Z",
+        "_links": {
+          "self": {
+            "href": "/api/v3/attachments/131868",
+            "title": "image.png"
+          },
+          "author": {
+            "href": "/api/v3/users/901",
+            "title": "Tester 1"
+          },
+          "container": {
+            "href": "/api/v3/work_packages/1001",
+            "title": "Przykładowe zadanie"
+          },
+          "staticDownloadLocation": {
+            "href": "/api/v3/attachments/131868/content"
+          },
+          "downloadLocation": {
+            "href": "/api/v3/attachments/131868/content"
+          },
+          "delete": {
+            "href": "/api/v3/attachments/131868",
+            "method": "delete"
+          }
+        }
+      },
+      {
+        "_type": "Attachment",
+        "id": 131870,
+        "fileName": "image.png",
+        "fileSize": 127509,
+        "description": {
+          "format": "plain",
+          "raw": "",
+          "html": ""
+        },
+        "status": "uploaded",
+        "contentType": "image/png",
+        "digest": {
+          "algorithm": "md5",
+          "hash": "42f1eb4b4c818ee19749f2858ff07c1d"
+        },
+        "createdAt": "2024-11-29T16:14:22.403Z",
+        "_links": {
+          "self": {
+            "href": "/api/v3/attachments/131870",
+            "title": "image.png"
+          },
+          "author": {
+            "href": "/api/v3/users/901",
+            "title": "Tester 1"
+          },
+          "container": {
+            "href": "/api/v3/work_packages/1001",
+            "title": "Przykładowe zadanie"
+          },
+          "staticDownloadLocation": {
+            "href": "/api/v3/attachments/131870/content"
+          },
+          "downloadLocation": {
+            "href": "/api/v3/attachments/131870/content"
+          },
+          "delete": {
+            "href": "/api/v3/attachments/131870",
+            "method": "delete"
+          }
+        }
+      },
+      {
+        "_type": "Attachment",
+        "id": 131867,
+        "fileName": "image.png",
+        "fileSize": 364982,
+        "description": {
+          "format": "plain",
+          "raw": "",
+          "html": ""
+        },
+        "status": "uploaded",
+        "contentType": "image/png",
+        "digest": {
+          "algorithm": "md5",
+          "hash": "fbfc6fb88ce2e24045136bfd4f06b619"
+        },
+        "createdAt": "2024-11-29T16:10:12.875Z",
+        "_links": {
+          "self": {
+            "href": "/api/v3/attachments/131867",
+            "title": "image.png"
+          },
+          "author": {
+            "href": "/api/v3/users/901",
+            "title": "Tester 1"
+          },
+          "container": {
+            "href": "/api/v3/work_packages/1001",
+            "title": "Przykładowe zadanie"
+          },
+          "staticDownloadLocation": {
+            "href": "/api/v3/attachments/131867/content"
+          },
+          "downloadLocation": {
+            "href": "/api/v3/attachments/131867/content"
+          },
+          "delete": {
+            "href": "/api/v3/attachments/131867",
+            "method": "delete"
+          }
+        }
+      },
+      {
+        "_type": "Attachment",
+        "id": 131869,
+        "fileName": "image.png",
+        "fileSize": 735815,
+        "description": {
+          "format": "plain",
+          "raw": "",
+          "html": ""
+        },
+        "status": "uploaded",
+        "contentType": "image/png",
+        "digest": {
+          "algorithm": "md5",
+          "hash": "2a23466af6b1987dbc44442833f32740"
+        },
+        "createdAt": "2024-11-29T16:12:10.259Z",
+        "_links": {
+          "self": {
+            "href": "/api/v3/attachments/131869",
+            "title": "image.png"
+          },
+          "author": {
+            "href": "/api/v3/users/901",
+            "title": "Tester 1"
+          },
+          "container": {
+            "href": "/api/v3/work_packages/1001",
+            "title": "Przykładowe zadanie"
+          },
+          "staticDownloadLocation": {
+            "href": "/api/v3/attachments/131869/content"
+          },
+          "downloadLocation": {
+            "href": "/api/v3/attachments/131869/content"
+          },
+          "delete": {
+            "href": "/api/v3/attachments/131869",
+            "method": "delete"
+          }
+        }
+      }
+    ]
+  },
+  "_links": {
+    "self": {
+      "href": "/api/v3/work_packages/1001/attachments"
+    }
+  }
+}

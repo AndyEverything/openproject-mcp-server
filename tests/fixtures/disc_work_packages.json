@@ -1,0 +1,42 @@
+{
+  "_type": "WorkPackageCollection",
+  "total": 3,
+  "count": 2,
+  "pageSize": 2,
+  "offset": 1,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "WorkPackage",
+        "id": 101,
+        "subject": "Poprawić eksport raportu",
+        "dueDate": "2026-10-01",
+        "percentageDone": 40,
+        "_links": {
+          "self": {"href": "/api/v3/work_packages/101", "title": "Poprawić eksport raportu"},
+          "status": {"href": "/api/v3/statuses/7", "title": "In progress"},
+          "type": {"href": "/api/v3/types/1", "title": "Task"},
+          "priority": {"href": "/api/v3/priorities/8", "title": "High"},
+          "project": {"href": "/api/v3/projects/21", "title": "Projekt Alfa"},
+          "assignee": {"href": "/api/v3/users/5", "title": "Kowalski Jan"}
+        }
+      },
+      {
+        "_type": "WorkPackage",
+        "id": 102,
+        "subject": "Kamień milowy wydania",
+        "date": "2026-10-15",
+        "percentageDone": 0,
+        "_links": {
+          "self": {"href": "/api/v3/work_packages/102", "title": "Kamień milowy wydania"},
+          "status": {"href": "/api/v3/statuses/1", "title": "New"},
+          "type": {"href": "/api/v3/types/2", "title": "Milestone"},
+          "priority": {"href": "/api/v3/priorities/2", "title": "Normal"},
+          "project": {"href": "/api/v3/projects/21", "title": "Projekt Alfa"},
+          "assignee": {"href": null}
+        }
+      }
+    ]
+  },
+  "_links": {"self": {"href": "/api/v3/work_packages?offset=1&pageSize=2"}}
+}

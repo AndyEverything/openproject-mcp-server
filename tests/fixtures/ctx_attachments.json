@@ -1,0 +1,68 @@
+{
+  "_type": "Collection",
+  "total": 2,
+  "count": 2,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "Attachment",
+        "id": 42,
+        "fileName": "zrzut.png",
+        "fileSize": 606425,
+        "description": {
+          "format": "plain",
+          "raw": "",
+          "html": ""
+        },
+        "status": "uploaded",
+        "contentType": "image/png",
+        "createdAt": "2026-06-12T08:00:00.000Z",
+        "_links": {
+          "self": {
+            "href": "/api/v3/attachments/42",
+            "title": "zrzut.png"
+          },
+          "container": {
+            "href": "/api/v3/work_packages/1234",
+            "title": "Zadanie testowe"
+          },
+          "downloadLocation": {
+            "href": "/api/v3/attachments/42/content"
+          }
+        }
+      },
+      {
+        "_type": "Attachment",
+        "id": 43,
+        "fileName": "specyfikacja.pdf",
+        "fileSize": 120000,
+        "description": {
+          "format": "plain",
+          "raw": "",
+          "html": ""
+        },
+        "status": "uploaded",
+        "contentType": "application/pdf",
+        "createdAt": "2026-06-12T08:00:00.000Z",
+        "_links": {
+          "self": {
+            "href": "/api/v3/attachments/43",
+            "title": "specyfikacja.pdf"
+          },
+          "container": {
+            "href": "/api/v3/work_packages/1234",
+            "title": "Zadanie testowe"
+          },
+          "downloadLocation": {
+            "href": "/api/v3/attachments/43/content"
+          }
+        }
+      }
+    ]
+  },
+  "_links": {
+    "self": {
+      "href": "/api/v3/work_packages/1234/attachments"
+    }
+  }
+}

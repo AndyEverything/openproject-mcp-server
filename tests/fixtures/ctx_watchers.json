@@ -1,0 +1,50 @@
+{
+  "_type": "Collection",
+  "total": 3,
+  "count": 3,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "User",
+        "id": 304,
+        "name": "Jan Testowy",
+        "login": "user304",
+        "_links": {
+          "self": {
+            "href": "/api/v3/users/304",
+            "title": "Jan Testowy"
+          }
+        }
+      },
+      {
+        "_type": "User",
+        "id": 305,
+        "name": "Anna Przykładowa",
+        "login": "user305",
+        "_links": {
+          "self": {
+            "href": "/api/v3/users/305",
+            "title": "Anna Przykładowa"
+          }
+        }
+      },
+      {
+        "_type": "User",
+        "id": 306,
+        "name": "Piotr Próbny",
+        "login": "user306",
+        "_links": {
+          "self": {
+            "href": "/api/v3/users/306",
+            "title": "Piotr Próbny"
+          }
+        }
+      }
+    ]
+  },
+  "_links": {
+    "self": {
+      "href": "/api/v3/work_packages/1234/watchers"
+    }
+  }
+}

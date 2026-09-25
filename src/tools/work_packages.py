@@ -5,6 +5,8 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 from src.server import mcp, get_client
+from src.utils.activities import activities_to_markdown, build_activities
+from src.utils.rendering import format_api_error
 from src.utils.formatting import (
     format_work_package_list,
     format_work_package_detail,
@@ -77,7 +79,8 @@ async def list_work_packages(
     # NEW: Additional filters
     author_id: Optional[int] = None,
     parent_id: Optional[int] = None,
-    no_parent_only: bool = False
+    no_parent_only: bool = False,
+    assigned_to_me: bool = False
 ) -> str:
     """List work packages (tasks) with advanced filtering - CRITICAL tool for flexible task search.
     
@@ -116,7 +119,9 @@ async def list_work_packages(
         author_id: Filter by task creator/author
         parent_id: Filter by parent work package ID (child tasks)
         no_parent_only: If True, only show top-level tasks (no parent)
-    
+        assigned_to_me: If True, only tasks assigned to the API key owner
+            (cannot be combined with assignee_id or unassigned_only)
+
     Returns:
         Formatted list of work packages matching all specified filters
         
@@ -168,7 +173,13 @@ async def list_work_packages(
             filters_list.append({"status": {"operator": "*", "values": []}})
         
         # === ASSIGNEE FILTER ===
-        if unassigned_only:
+        if assigned_to_me and (assignee_id or unassigned_only):
+            return format_error(
+                "assigned_to_me cannot be combined with assignee_id or unassigned_only"
+            )
+        if assigned_to_me:
+            filters_list.append({"assignee": {"operator": "=", "values": ["me"]}})
+        elif unassigned_only:
             # Unassigned takes priority over assignee_id
             filters_list.append({"assignee": {"operator": "!*", "values": []}})
         elif assignee_id:
@@ -292,7 +303,8 @@ async def search_work_packages(
     project_id: Optional[int] = None,
     active_only: bool = True,
     offset: int = 0,
-    page_size: int = 20
+    page_size: int = 20,
+    full_text: bool = False
 ) -> str:
     """Search work packages by subject or ID - Fast search without pagination.
 
@@ -305,6 +317,8 @@ async def search_work_packages(
         active_only: If True, only search open work packages (default: True)
         offset: Starting index for pagination (default: 0)
         page_size: Number of results per page (default: 20, max: 100)
+        full_text: If True, search subject, description and comments
+            (OpenProject `search` filter) instead of subject/ID only
 
     Returns:
         Formatted list of matching work packages
@@ -330,9 +344,10 @@ async def search_work_packages(
         # Build filters
         filters_list = []
 
-        # Add subjectOrId filter for search
+        # full_text: temat + opis + komentarze; domyślnie temat/ID
+        search_filter = "search" if full_text else "subjectOrId"
         filters_list.append({
-            "subjectOrId": {
+            search_filter: {
                 "operator": "**",
                 "values": [query.strip()]
             }
@@ -372,7 +387,8 @@ async def search_work_packages(
                 text += " (active only)"
             return text
 
-        text = f"🔍 **Search Results for '{query}'**: Found {total} work package(s)\n\n"
+        text = f"🔍 **Search Results for '{query}'**: Found {total} work package(s)"
+        text += " (full-text)\n\n" if full_text else "\n\n"
         text += format_work_package_list(work_packages)
 
         # Add pagination info
@@ -832,14 +848,17 @@ async def add_work_package_comment(
 
 
 @mcp.tool
-async def list_work_package_activities(work_package_id: int) -> str:
+async def list_work_package_activities(
+    work_package_id: int, comments_only: bool = False
+) -> str:
     """List all activities (comments, changes) for a work package.
 
-    This shows the activity history including comments, status changes, and field updates.
-    Useful for reviewing task history and communication.
+    This shows the activity history including full comments, internal-comment
+    markers and every field change as readable text (nothing is truncated).
 
     Args:
         work_package_id: ID of the work package
+        comments_only: If True, only entries with a comment are returned
 
     Returns:
         Formatted list of activities with details
@@ -848,55 +867,20 @@ async def list_work_package_activities(work_package_id: int) -> str:
         client = get_client()
 
         result = await client.get_work_package_activities(work_package_id)
-        activities = result.get("_embedded", {}).get("elements", [])
+        activities = build_activities(result, comments_only=comments_only)
 
         if not activities:
-            return f"No activities found for work package #{work_package_id}."
+            kind = "comments" if comments_only else "activities"
+            return f"No {kind} found for work package #{work_package_id}."
 
-        text = format_success(f"Work Package #{work_package_id} Activities ({len(activities)}):\n\n")
-
-        for activity in activities:
-            activity_id = activity.get("id", "N/A")
-            activity_type = activity.get("_type", "Activity")
-            created_at = activity.get("createdAt", "Unknown")
-
-            # Get user from _links
-            links = activity.get("_links", {})
-            user_link = links.get("user", {})
-            user_name = user_link.get("title", "Unknown")
-
-            text += f"**Activity #{activity_id}** - {activity_type}\n"
-            text += f"  By: {user_name}\n"
-            text += f"  Date: {created_at}\n"
-
-            # Show comment if available
-            comment_data = activity.get("comment", {})
-            if comment_data:
-                comment_raw = comment_data.get("raw", "")
-                if comment_raw:
-                    # Truncate long comments
-                    comment_preview = comment_raw[:150]
-                    if len(comment_raw) > 150:
-                        comment_preview += "..."
-                    text += f"  Comment: {comment_preview}\n"
-
-            # Show if internal
-            if activity.get("internal"):
-                text += f"  🔒 Internal comment\n"
-
-            # Show details of changes (if available)
-            details = activity.get("details", [])
-            if details:
-                text += f"  Changes:\n"
-                for detail in details[:3]:  # Show max 3 changes
-                    text += f"    - {detail}\n"
-
-            text += "\n"
-
-        return text
+        label = "Comments" if comments_only else "Activities"
+        header = format_success(
+            f"Work Package #{work_package_id} {label} ({len(activities)}):"
+        )
+        return f"{header}\n\n{activities_to_markdown(activities)}\n"
 
     except Exception as e:
-        return format_error(f"Failed to list activities: {str(e)}")
+        return format_api_error(e)
 
 
 # ============================================================================

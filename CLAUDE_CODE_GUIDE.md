@@ -39,6 +39,18 @@ ls -la .claude/
 @api-explorer Find all tools that handle pagination
 ```
 
+## 🧭 Working on OpenProject Tasks as an Agent
+
+Once the server is installed (see `CLAUDE_CODE_SETUP.md`), a typical agent session looks like this:
+
+1. **Find work** – `list_my_work_packages`, `run_query(query_id)` (saved view of the PO), `list_notifications(reason="mentioned")`.
+2. **Load full context** – `get_work_package_context(work_package_id)` (description, custom fields, comments, attachments, relations, hierarchy) or attach the resource `@openproject-fastmcp:openproject://work-packages/<id>`.
+3. **See screenshots** – `get_attachment(attachment_id)` for image IDs listed under "Obrazy w opisie"; images are returned as viewable image content.
+4. **Check code links and workflow** – `list_work_package_code_links`, `get_allowed_statuses`.
+5. **Plan or summarize** – prompts `/mcp__openproject-fastmcp__plan_work_package <id>` and `/mcp__openproject-fastmcp__summarize_work_package <id>`.
+
+Set `OPENPROJECT_READ_ONLY=true` for agent sessions that must not modify OpenProject. Full tool reference: [README – Agent Context Tools](README.md#agent-context-tools-).
+
 ## 🤖 Subagents Overview
 
 ### Built-in Subagents (Always Available)

@@ -208,3 +208,8 @@ __marimo__/
 
 # Claude Code configuration
 CLAUDE.md
+
+# OpenSpec local workflow (planning artifacts + tooling, stays local only)
+openspec/
+.claude/commands/opsx/
+.claude/skills/

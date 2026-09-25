@@ -1,0 +1,41 @@
+{
+  "_type": "Collection",
+  "total": 3,
+  "count": 2,
+  "pageSize": 2,
+  "offset": 1,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "Notification",
+        "id": 1373805,
+        "readIAN": false,
+        "reason": "mentioned",
+        "createdAt": "2026-09-25T06:24:19.784Z",
+        "updatedAt": "2026-09-25T06:24:19.784Z",
+        "_links": {
+          "self": {"href": "/api/v3/notifications/1373805"},
+          "readIAN": {"href": "/api/v3/notifications/1373805/read_ian", "method": "post"},
+          "actor": {"href": "/api/v3/users/93", "title": "Nowak Anna"},
+          "activity": {"href": "/api/v3/activities/1374355"},
+          "resource": {"href": "/api/v3/work_packages/77725", "title": "[Alfa] Dostosowanie do niestandardowego skalowania"},
+          "project": {"href": "/api/v3/projects/21", "title": "Projekt Alfa"}
+        }
+      },
+      {
+        "_type": "Notification",
+        "id": 1373806,
+        "readIAN": false,
+        "reason": "mentioned",
+        "createdAt": "2026-09-24T10:00:00.000Z",
+        "updatedAt": "2026-09-24T10:00:00.000Z",
+        "_links": {
+          "self": {"href": "/api/v3/notifications/1373806"},
+          "actor": {"href": null},
+          "resource": {"href": "/api/v3/news/12", "title": "Nowa wersja systemu"},
+          "project": {"href": "/api/v3/projects/21", "title": "Projekt Alfa"}
+        }
+      }
+    ]
+  }
+}

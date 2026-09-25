@@ -7,19 +7,42 @@ A comprehensive async client for OpenProject API v3 with proxy support.
 import os
 import json
 import logging
-from typing import Dict, List, Optional, Any
+import mimetypes
+from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 import asyncio
 import aiohttp
-from urllib.parse import quote
+from urllib.parse import quote, urljoin, urlsplit
 import base64
 import ssl
+
+from src.utils.cache import TTLCache
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Version information
 __version__ = "2.0.0"
+
+DEFAULT_TIMEOUT_SECONDS = 30
+DOWNLOAD_TIMEOUT_SECONDS = 120
+MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
+MAX_REDIRECTS = 3
+REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+DOWNLOAD_CHUNK_SIZE = 64 * 1024
+
+
+class OpenProjectAPIError(Exception):
+    """HTTP error returned by the OpenProject API (status >= 400)."""
+
+    def __init__(self, status: int, body: str, message: Optional[str] = None):
+        self.status = status
+        self.body = body
+        super().__init__(message if message is not None else f"API Error {status}: {body}")
+
+
+class DownloadTooLargeError(Exception):
+    """Raised when a binary download exceeds the size limit."""
 
 
 class OpenProjectClient:
@@ -45,6 +68,7 @@ class OpenProjectClient:
             "Accept": "application/json",
             "User-Agent": f"OpenProject-MCP/{__version__}",
         }
+        self.cache = TTLCache()
 
         logger.info(f"OpenProject Client initialized for: {self.base_url}")
         if self.proxy:
@@ -54,6 +78,57 @@ class OpenProjectClient:
         """Encode API key for Basic Auth"""
         credentials = f"apikey:{self.api_key}"
         return base64.b64encode(credentials.encode()).decode()
+
+    def _create_session(
+        self, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
+    ) -> aiohttp.ClientSession:
+        """Create an aiohttp session with shared SSL and timeout configuration."""
+        ssl_context = ssl.create_default_context()
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        timeout = aiohttp.ClientTimeout(total=timeout_seconds)
+        return aiohttp.ClientSession(connector=connector, timeout=timeout)
+
+    def _proxy_params(self) -> Dict[str, str]:
+        """Request kwargs with the proxy, if configured."""
+        return {"proxy": self.proxy} if self.proxy else {}
+
+    def _api_url(self, endpoint: str) -> str:
+        """Build an absolute URL from an API endpoint, API href or absolute URL."""
+        if endpoint.startswith(("http://", "https://")):
+            return endpoint
+        if endpoint.startswith("/api/v3"):
+            return f"{self.base_url}{endpoint}"
+        return f"{self.base_url}/api/v3{endpoint}"
+
+    def _is_same_origin(self, url: str) -> bool:
+        """Whether the URL points to the configured OpenProject origin."""
+        target = urlsplit(url)
+        base = urlsplit(self.base_url)
+        return (target.scheme.lower(), target.netloc.lower()) == (
+            base.scheme.lower(),
+            base.netloc.lower(),
+        )
+
+    async def _parse_json_response(self, response: aiohttp.ClientResponse) -> Dict:
+        """Parse a JSON response; raise OpenProjectAPIError for status >= 400."""
+        response_text = await response.text()
+
+        logger.debug(f"Response status: {response.status}")
+
+        try:
+            response_json = json.loads(response_text) if response_text else {}
+        except json.JSONDecodeError:
+            logger.error(f"Invalid JSON response: {response_text[:200]}...")
+            response_json = {}
+
+        if response.status >= 400:
+            raise OpenProjectAPIError(
+                response.status,
+                response_text,
+                self._format_error_message(response.status, response_text),
+            )
+
+        return response_json
 
     async def _request(
         self, method: str, endpoint: str, data: Optional[Dict] = None
@@ -70,7 +145,8 @@ class OpenProjectClient:
             Dict: Response data from the API
 
         Raises:
-            Exception: If the request fails
+            OpenProjectAPIError: If the API responds with status >= 400
+            Exception: On network errors
         """
         url = f"{self.base_url}/api/v3{endpoint}"
 
@@ -78,53 +154,177 @@ class OpenProjectClient:
         if data:
             logger.debug(f"Request body: {json.dumps(data, indent=2)}")
 
-        # Configure SSL and timeout
-        ssl_context = ssl.create_default_context()
-        connector = aiohttp.TCPConnector(ssl=ssl_context)
-        timeout = aiohttp.ClientTimeout(total=30)
-
-        async with aiohttp.ClientSession(
-            connector=connector, timeout=timeout
-        ) as session:
+        async with self._create_session() as session:
             try:
-                # Build request parameters
                 request_params = {
                     "method": method,
                     "url": url,
                     "headers": self.headers,
                     "json": data,
+                    **self._proxy_params(),
                 }
 
-                # Add proxy if configured
-                if self.proxy:
-                    request_params["proxy"] = self.proxy
-
                 async with session.request(**request_params) as response:
-                    response_text = await response.text()
-
-                    logger.debug(f"Response status: {response.status}")
-
-                    # Parse response
-                    try:
-                        response_json = (
-                            json.loads(response_text) if response_text else {}
-                        )
-                    except json.JSONDecodeError:
-                        logger.error(f"Invalid JSON response: {response_text[:200]}...")
-                        response_json = {}
-
-                    # Handle errors
-                    if response.status >= 400:
-                        error_msg = self._format_error_message(
-                            response.status, response_text
-                        )
-                        raise Exception(error_msg)
-
-                    return response_json
+                    return await self._parse_json_response(response)
 
             except aiohttp.ClientError as e:
                 logger.error(f"Network error: {str(e)}")
                 raise Exception(f"Network error accessing {url}: {str(e)}")
+
+    async def _request_bytes(
+        self, endpoint: str, max_bytes: int = MAX_DOWNLOAD_BYTES
+    ) -> Tuple[bytes, str, Optional[str]]:
+        """
+        Download binary content (e.g. attachment content).
+
+        Redirects are followed manually (max MAX_REDIRECTS); the Authorization
+        header is sent only to the configured OpenProject origin.
+
+        Args:
+            endpoint: API endpoint ("/attachments/1/content"), API href
+                ("/api/v3/...") or absolute URL
+            max_bytes: Maximum number of bytes to download
+
+        Returns:
+            Tuple of (content, content_type without parameters, filename from
+            Content-Disposition or None)
+
+        Raises:
+            OpenProjectAPIError: If the server responds with status >= 400
+            DownloadTooLargeError: If the content exceeds max_bytes
+        """
+        url = self._api_url(endpoint)
+        current_url = url
+
+        async with self._create_session(DOWNLOAD_TIMEOUT_SECONDS) as session:
+            try:
+                for _ in range(MAX_REDIRECTS + 1):
+                    headers = {
+                        "Accept": "*/*",
+                        "User-Agent": self.headers["User-Agent"],
+                    }
+                    # Klucz API tylko do własnej instancji (presigned URL-e S3 itp. bez auth)
+                    if self._is_same_origin(current_url):
+                        headers["Authorization"] = self.headers["Authorization"]
+
+                    logger.debug(f"API Download: GET {current_url}")
+                    async with session.get(
+                        current_url,
+                        headers=headers,
+                        allow_redirects=False,
+                        **self._proxy_params(),
+                    ) as response:
+                        if response.status in REDIRECT_STATUSES:
+                            location = response.headers.get("Location")
+                            if not location:
+                                raise OpenProjectAPIError(
+                                    response.status,
+                                    "",
+                                    f"API Error {response.status}: redirect without Location header",
+                                )
+                            current_url = urljoin(current_url, location)
+                            continue
+
+                        if response.status >= 400:
+                            body = await response.text(errors="replace")
+                            raise OpenProjectAPIError(
+                                response.status,
+                                body,
+                                self._format_error_message(response.status, body),
+                            )
+
+                        content = await self._read_limited(response, max_bytes)
+                        return (
+                            content,
+                            response.content_type,
+                            self._content_disposition_filename(response),
+                        )
+
+                raise Exception(
+                    f"Too many redirects (more than {MAX_REDIRECTS}) while downloading {url}"
+                )
+
+            except aiohttp.ClientError as e:
+                logger.error(f"Network error: {str(e)}")
+                raise Exception(f"Network error accessing {url}: {str(e)}")
+
+    @staticmethod
+    async def _read_limited(response: aiohttp.ClientResponse, max_bytes: int) -> bytes:
+        """Read the response body in chunks, aborting once max_bytes is exceeded."""
+        too_large_msg = (
+            f"Download exceeds the size limit of {max_bytes} bytes "
+            f"({max_bytes / (1024 * 1024):.1f} MB); download aborted"
+        )
+        if response.content_length is not None and response.content_length > max_bytes:
+            raise DownloadTooLargeError(too_large_msg)
+
+        buffer = bytearray()
+        async for chunk in response.content.iter_chunked(DOWNLOAD_CHUNK_SIZE):
+            buffer.extend(chunk)
+            if len(buffer) > max_bytes:
+                raise DownloadTooLargeError(too_large_msg)
+        return bytes(buffer)
+
+    @staticmethod
+    def _content_disposition_filename(response: aiohttp.ClientResponse) -> Optional[str]:
+        """Filename from the Content-Disposition header, if present."""
+        try:
+            disposition = response.content_disposition
+        except Exception:
+            return None
+        return disposition.filename if disposition else None
+
+    async def _request_multipart(
+        self, endpoint: str, metadata: Dict, file_path: str
+    ) -> Dict:
+        """
+        POST multipart/form-data with a JSON "metadata" part and a "file" part.
+
+        Args:
+            endpoint: API endpoint path
+            metadata: Dict sent as the JSON "metadata" part
+            file_path: Path of the file sent as the "file" part
+
+        Returns:
+            Dict: Response data from the API
+        """
+        url = f"{self.base_url}/api/v3{endpoint}"
+        file_name = os.path.basename(file_path)
+        content_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+
+        with open(file_path, "rb") as file:
+            file_content = file.read()
+
+        form = aiohttp.FormData()
+        form.add_field(
+            "metadata", json.dumps(metadata), content_type="application/json"
+        )
+        form.add_field(
+            "file", file_content, filename=file_name, content_type=content_type
+        )
+        # Content-Type z boundary ustawia aiohttp
+        headers = {k: v for k, v in self.headers.items() if k != "Content-Type"}
+
+        logger.debug(f"API Multipart Request: POST {url} ({file_name})")
+
+        async with self._create_session(DOWNLOAD_TIMEOUT_SECONDS) as session:
+            try:
+                async with session.post(
+                    url, data=form, headers=headers, **self._proxy_params()
+                ) as response:
+                    return await self._parse_json_response(response)
+            except aiohttp.ClientError as e:
+                logger.error(f"Network error: {str(e)}")
+                raise Exception(f"Network error accessing {url}: {str(e)}")
+
+    @staticmethod
+    def _ensure_elements(result: Dict) -> Dict:
+        """Guarantee the `_embedded.elements` list in a collection response."""
+        if "_embedded" not in result:
+            result["_embedded"] = {"elements": []}
+        elif "elements" not in result.get("_embedded", {}):
+            result["_embedded"]["elements"] = []
+        return result
 
     def _format_error_message(self, status: int, response_text: str) -> str:
         """Format error message based on HTTP status code"""
@@ -289,7 +489,7 @@ class OpenProjectClient:
 
     async def get_types(self, project_id: Optional[int] = None) -> Dict:
         """
-        Retrieve available work package types.
+        Retrieve available work package types (cached per project, see TTLCache).
 
         Args:
             project_id: Optional project ID to filter types by
@@ -297,6 +497,11 @@ class OpenProjectClient:
         Returns:
             Dict: API response containing types
         """
+        return await self.cache.get_or_set(
+            f"types:{project_id or 'all'}", lambda: self._fetch_types(project_id)
+        )
+
+    async def _fetch_types(self, project_id: Optional[int] = None) -> Dict:
         if project_id:
             endpoint = f"/projects/{project_id}/types"
         else:
@@ -387,11 +592,14 @@ class OpenProjectClient:
 
     async def get_statuses(self) -> Dict:
         """
-        Retrieve available work package statuses.
+        Retrieve available work package statuses (cached, see TTLCache).
 
         Returns:
             Dict: API response containing statuses
         """
+        return await self.cache.get_or_set("statuses", self._fetch_statuses)
+
+    async def _fetch_statuses(self) -> Dict:
         result = await self._request("GET", "/statuses")
 
         # Ensure proper response structure
@@ -404,11 +612,14 @@ class OpenProjectClient:
 
     async def get_priorities(self) -> Dict:
         """
-        Retrieve available work package priorities.
+        Retrieve available work package priorities (cached, see TTLCache).
 
         Returns:
             Dict: API response containing priorities
         """
+        return await self.cache.get_or_set("priorities", self._fetch_priorities)
+
+    async def _fetch_priorities(self) -> Dict:
         result = await self._request("GET", "/priorities")
 
         # Ensure proper response structure
@@ -1395,3 +1606,146 @@ class OpenProjectClient:
         await self._request("DELETE", f"/news/{news_id}")
         return True
 
+    # ------------------------------------------------------------------
+    # Agent context: current user, schema, attachments, watchers,
+    # queries, notifications, versions, link collections
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _encode_filters(filters: List[Dict]) -> str:
+        """URL-encode an OpenProject filter list (same convention as get_memberships)."""
+        return quote(json.dumps(filters))
+
+    async def get_current_user(self) -> Dict:
+        """Retrieve the authenticated user (GET /users/me, cached)."""
+        return await self.cache.get_or_set(
+            "users:me", lambda: self._request("GET", "/users/me")
+        )
+
+    async def get_work_package_schema(self, project_id: int, type_id: int) -> Dict:
+        """Retrieve the work package schema for a project/type pair (cached)."""
+        return await self.cache.get_or_set(
+            f"schema:{project_id}-{type_id}",
+            lambda: self._request(
+                "GET", f"/work_packages/schemas/{project_id}-{type_id}"
+            ),
+        )
+
+    async def get_work_package_attachments(self, work_package_id: int) -> Dict:
+        """Retrieve the attachment collection of a work package."""
+        result = await self._request(
+            "GET", f"/work_packages/{work_package_id}/attachments"
+        )
+        return self._ensure_elements(result)
+
+    async def get_attachment(self, attachment_id: int) -> Dict:
+        """Retrieve attachment metadata (name, contentType, fileSize, ...)."""
+        return await self._request("GET", f"/attachments/{attachment_id}")
+
+    async def download_attachment(
+        self, attachment_id: int
+    ) -> Tuple[bytes, str, Optional[str]]:
+        """Download attachment content; returns (bytes, content_type, filename)."""
+        return await self._request_bytes(f"/attachments/{attachment_id}/content")
+
+    async def upload_attachment(
+        self, work_package_id: int, file_path: str, description: Optional[str] = None
+    ) -> Dict:
+        """Upload a file as a work package attachment (multipart POST)."""
+        metadata: Dict[str, Any] = {"fileName": os.path.basename(file_path)}
+        if description:
+            metadata["description"] = {"raw": description}
+        return await self._request_multipart(
+            f"/work_packages/{work_package_id}/attachments", metadata, file_path
+        )
+
+    async def get_work_package_form(
+        self, work_package_id: int, lock_version: int
+    ) -> Dict:
+        """Retrieve the work package form (validates only, does not save)."""
+        return await self._request(
+            "POST",
+            f"/work_packages/{work_package_id}/form",
+            {"lockVersion": lock_version},
+        )
+
+    async def get_watchers(self, work_package_id: int) -> Dict:
+        """Retrieve watchers of a work package."""
+        result = await self._request(
+            "GET", f"/work_packages/{work_package_id}/watchers"
+        )
+        return self._ensure_elements(result)
+
+    async def add_watcher(self, work_package_id: int, user_id: int) -> Dict:
+        """Add a user as a watcher of a work package."""
+        return await self._request(
+            "POST",
+            f"/work_packages/{work_package_id}/watchers",
+            {"user": {"href": f"/api/v3/users/{user_id}"}},
+        )
+
+    async def remove_watcher(self, work_package_id: int, user_id: int) -> bool:
+        """Remove a watcher from a work package."""
+        await self._request(
+            "DELETE", f"/work_packages/{work_package_id}/watchers/{user_id}"
+        )
+        return True
+
+    async def get_queries(self, project_id: Optional[int] = None) -> Dict:
+        """Retrieve saved queries (views), optionally filtered by project."""
+        endpoint = "/queries"
+        if project_id:
+            filters = [{"project": {"operator": "=", "values": [str(project_id)]}}]
+            endpoint += f"?filters={self._encode_filters(filters)}"
+        result = await self._request("GET", endpoint)
+        return self._ensure_elements(result)
+
+    async def get_query(
+        self, query_id: int, offset: int = 1, page_size: int = 20
+    ) -> Dict:
+        """Retrieve a saved query with its results (`_embedded.results`); offset is 1-based."""
+        return await self._request(
+            "GET", f"/queries/{query_id}?offset={offset}&pageSize={page_size}"
+        )
+
+    async def get_notifications(
+        self,
+        unread_only: bool = True,
+        reason: Optional[str] = None,
+        offset: int = 1,
+        page_size: int = 20,
+    ) -> Dict:
+        """Retrieve in-app notifications (read only; never marks them as read)."""
+        filters: List[Dict] = []
+        if unread_only:
+            filters.append({"readIAN": {"operator": "=", "values": ["f"]}})
+        if reason:
+            filters.append({"reason": {"operator": "=", "values": [reason]}})
+
+        query_params = []
+        if filters:
+            query_params.append(f"filters={self._encode_filters(filters)}")
+        query_params.append(f"offset={offset}")
+        query_params.append(f"pageSize={page_size}")
+
+        result = await self._request(
+            "GET", "/notifications?" + "&".join(query_params)
+        )
+        return self._ensure_elements(result)
+
+    async def get_version(self, version_id: int) -> Dict:
+        """Retrieve a specific version by ID."""
+        return await self._request("GET", f"/versions/{version_id}")
+
+    async def update_version(self, version_id: int, data: Dict) -> Dict:
+        """Update a version (PATCH); `data` is sent as the request body as-is."""
+        return await self._request("PATCH", f"/versions/{version_id}", data)
+
+    async def get_work_package_link_collection(
+        self, work_package_id: int, link_path: str
+    ) -> Dict:
+        """Retrieve a work package sub-collection, e.g. "github_pull_requests" or "file_links"."""
+        result = await self._request(
+            "GET", f"/work_packages/{work_package_id}/{link_path.lstrip('/')}"
+        )
+        return self._ensure_elements(result)

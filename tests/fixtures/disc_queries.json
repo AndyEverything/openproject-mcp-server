@@ -1,0 +1,35 @@
+{
+  "_type": "Collection",
+  "total": 2,
+  "count": 2,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "Query",
+        "id": 2630,
+        "name": "Do testów",
+        "starred": true,
+        "public": true,
+        "hidden": false,
+        "_links": {
+          "self": {"href": "/api/v3/queries/2630", "title": "Do testów"},
+          "project": {"href": "/api/v3/projects/21", "title": "Projekt Alfa"},
+          "user": {"href": "/api/v3/users/93", "title": "Nowak Anna"}
+        }
+      },
+      {
+        "_type": "Query",
+        "id": 17,
+        "name": "Moje prywatne",
+        "starred": false,
+        "public": false,
+        "hidden": false,
+        "_links": {
+          "self": {"href": "/api/v3/queries/17", "title": "Moje prywatne"},
+          "project": {"href": null},
+          "user": {"href": "/api/v3/users/5", "title": "Kowalski Jan"}
+        }
+      }
+    ]
+  }
+}

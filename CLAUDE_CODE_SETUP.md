@@ -1,3 +1,46 @@
+# Claude Code Installation (agent-executable)
+
+Step-by-step instructions that a coding agent (or a human) can follow to install this server for Claude Code. The configuration is backward compatible: same entry point (`openproject-mcp-fastmcp.py`, stdio), same required variables (`OPENPROJECT_URL`, `OPENPROJECT_API_KEY`). If you already have an entry in `~/.claude.json`, only the paths may need to change.
+
+1. **Check prerequisites** – `uv --version` (install from https://docs.astral.sh/uv/ if missing) and `git --version`.
+2. **Clone or update the repository**
+   ```bash
+   git clone <repository-url> <INSTALL_DIR>      # first install
+   git -C <INSTALL_DIR> pull                     # update
+   ```
+3. **Install dependencies** (creates `<INSTALL_DIR>/.venv`)
+   ```bash
+   cd <INSTALL_DIR>
+   uv sync
+   ```
+4. **Verify the server imports** (uses dummy values, no network access)
+   ```bash
+   OPENPROJECT_URL=https://example.test OPENPROJECT_API_KEY=dummy uv run python -c "import src.server"
+   ```
+   PowerShell: `$env:OPENPROJECT_URL='https://example.test'; $env:OPENPROJECT_API_KEY='dummy'; uv run python -c "import src.server"`
+5. **Register the server in Claude Code** – either with the CLI:
+   ```bash
+   claude mcp add-json openproject-fastmcp --scope user '{
+     "type": "stdio",
+     "command": "<INSTALL_DIR>/.venv/Scripts/python.exe",
+     "args": ["<INSTALL_DIR>/openproject-mcp-fastmcp.py"],
+     "env": {
+       "PYTHONPATH": "<INSTALL_DIR>",
+       "OPENPROJECT_URL": "https://your-instance.openproject.com/",
+       "OPENPROJECT_API_KEY": "<YOUR_API_KEY>",
+       "OPENPROJECT_READ_ONLY": "true"
+     }
+   }'
+   ```
+   or by editing `mcpServers` in `~/.claude.json` with the same JSON. On macOS/Linux use `<INSTALL_DIR>/.venv/bin/python`.
+   - `OPENPROJECT_READ_ONLY` is optional – recommended for agent sessions; remove it to enable write tools.
+   - Optional: `OPENPROJECT_CACHE_TTL` (seconds, default 600), `OPENPROJECT_ATTACHMENTS_DIR` (where non-inline attachments are saved).
+   - Never commit the API key; keep it only in the local Claude Code config or environment.
+6. **Restart Claude Code** and run `/mcp` – `openproject-fastmcp` should be connected.
+7. **Verify** – ask the agent to call `test_connection`, then `get_work_package_context` for a known work package ID.
+
+---
+
 # Claude Code Testing Guide - FastMCP OpenProject
 
 ## Quick Setup (5 phút)

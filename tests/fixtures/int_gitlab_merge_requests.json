@@ -1,0 +1,21 @@
+{
+  "_type": "Collection",
+  "total": 1,
+  "count": 1,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "GitlabMergeRequest",
+        "id": 21,
+        "number": 7,
+        "webUrl": "https://gitlab.example.test/team/app/-/merge_requests/7",
+        "state": "merged",
+        "repository": "team/app",
+        "title": "Poprawka walidacji formularza",
+        "draft": false,
+        "merged": true
+      }
+    ]
+  },
+  "_links": {"self": {"href": "/api/v3/work_packages/1234/gitlab_merge_requests"}}
+}

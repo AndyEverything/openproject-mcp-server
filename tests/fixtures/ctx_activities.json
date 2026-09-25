@@ -1,0 +1,186 @@
+{
+  "_type": "Collection",
+  "total": 5,
+  "count": 5,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "Activity",
+        "id": 1001,
+        "comment": {
+          "format": "markdown",
+          "raw": "",
+          "html": ""
+        },
+        "details": [
+          {
+            "format": "custom",
+            "raw": "**Typ** set to *Feature*",
+            "html": ""
+          },
+          {
+            "format": "custom",
+            "raw": "**Opis** set (/journals/1001/diff/description)",
+            "html": ""
+          }
+        ],
+        "version": 1,
+        "internal": false,
+        "createdAt": "2026-06-11T10:12:37.000Z",
+        "updatedAt": "2026-06-11T10:12:37.000Z",
+        "_links": {
+          "self": {
+            "href": "/api/v3/activities/1001"
+          },
+          "workPackage": {
+            "href": "/api/v3/work_packages/1234",
+            "title": "Zadanie testowe"
+          },
+          "user": {
+            "href": "/api/v3/users/305",
+            "title": "Anna Przykładowa"
+          }
+        }
+      },
+      {
+        "_type": "Activity::Comment",
+        "id": 1002,
+        "comment": {
+          "format": "markdown",
+          "raw": "Pierwszy komentarz.\n\nDruga linia z **pogrubieniem**.",
+          "html": ""
+        },
+        "details": [],
+        "version": 2,
+        "internal": false,
+        "createdAt": "2026-08-01T10:00:00.000Z",
+        "updatedAt": "2026-08-01T10:00:00.000Z",
+        "_links": {
+          "self": {
+            "href": "/api/v3/activities/1002"
+          },
+          "workPackage": {
+            "href": "/api/v3/work_packages/1234",
+            "title": "Zadanie testowe"
+          },
+          "user": {
+            "href": "/api/v3/users/304",
+            "title": "Jan Testowy"
+          }
+        }
+      },
+      {
+        "_type": "Activity",
+        "id": 1003,
+        "comment": {
+          "format": "markdown",
+          "raw": "",
+          "html": ""
+        },
+        "details": [
+          {
+            "format": "custom",
+            "raw": "**Status** changed from *New* to *In progress*",
+            "html": ""
+          },
+          {
+            "format": "custom",
+            "raw": "**Przypisany do** set to *Jan Testowy*",
+            "html": ""
+          },
+          {
+            "format": "custom",
+            "raw": "**Priorytet** changed from *Normal* to *High*",
+            "html": ""
+          },
+          {
+            "format": "custom",
+            "raw": "**Termin** set to *2026-09-30*",
+            "html": ""
+          }
+        ],
+        "version": 3,
+        "internal": false,
+        "createdAt": "2026-08-01T10:00:00.000Z",
+        "updatedAt": "2026-08-01T10:00:00.000Z",
+        "_links": {
+          "self": {
+            "href": "/api/v3/activities/1003"
+          },
+          "workPackage": {
+            "href": "/api/v3/work_packages/1234",
+            "title": "Zadanie testowe"
+          },
+          "user": {
+            "href": "/api/v3/users/305",
+            "title": "Anna Przykładowa"
+          }
+        }
+      },
+      {
+        "_type": "Activity::Comment",
+        "id": 1004,
+        "comment": {
+          "format": "markdown",
+          "raw": "Komentarz wewnętrzny dla zespołu.",
+          "html": ""
+        },
+        "details": [],
+        "version": 4,
+        "internal": true,
+        "createdAt": "2026-08-01T10:00:00.000Z",
+        "updatedAt": "2026-08-01T10:00:00.000Z",
+        "_links": {
+          "self": {
+            "href": "/api/v3/activities/1004"
+          },
+          "workPackage": {
+            "href": "/api/v3/work_packages/1234",
+            "title": "Zadanie testowe"
+          },
+          "user": {
+            "href": "/api/v3/users/93"
+          }
+        }
+      },
+      {
+        "_type": "Activity",
+        "id": 1005,
+        "comment": {
+          "format": "markdown",
+          "raw": "",
+          "html": ""
+        },
+        "details": [
+          {
+            "format": "custom",
+            "raw": "Opis changed (/journals/1005/diff/description)",
+            "html": ""
+          }
+        ],
+        "version": 5,
+        "internal": false,
+        "createdAt": "2026-08-01T10:00:00.000Z",
+        "updatedAt": "2026-08-01T10:00:00.000Z",
+        "_links": {
+          "self": {
+            "href": "/api/v3/activities/1005"
+          },
+          "workPackage": {
+            "href": "/api/v3/work_packages/1234",
+            "title": "Zadanie testowe"
+          },
+          "user": {
+            "href": "/api/v3/users/304",
+            "title": "Jan Testowy"
+          }
+        }
+      }
+    ]
+  },
+  "_links": {
+    "self": {
+      "href": "/api/v3/work_packages/1234/activities"
+    }
+  }
+}

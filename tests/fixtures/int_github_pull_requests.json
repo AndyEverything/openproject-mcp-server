@@ -1,0 +1,22 @@
+{
+  "_type": "Collection",
+  "total": 1,
+  "count": 1,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "GithubPullRequest",
+        "id": 11,
+        "number": 42,
+        "htmlUrl": "https://github.com/example/app/pull/42",
+        "state": "open",
+        "repository": "example/app",
+        "title": "Obsługa eksportu raportu",
+        "draft": false,
+        "merged": false,
+        "_embedded": {"githubUser": {"_type": "GithubUser", "login": "jan-kowalski"}}
+      }
+    ]
+  },
+  "_links": {"self": {"href": "/api/v3/work_packages/1234/github_pull_requests"}}
+}

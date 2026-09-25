@@ -1,0 +1,41 @@
+{
+  "_type": "Form",
+  "_embedded": {
+    "payload": {
+      "lockVersion": 15,
+      "subject": "Zadanie testowe"
+    },
+    "schema": {
+      "_type": "Schema",
+      "status": {
+        "type": "Status",
+        "name": "Status",
+        "required": true,
+        "writable": true,
+        "_links": {
+          "allowedValues": [
+            {
+              "href": "/api/v3/statuses/2",
+              "title": "Approved"
+            },
+            {
+              "href": "/api/v3/statuses/7",
+              "title": "In progress"
+            },
+            {
+              "href": "/api/v3/statuses/12",
+              "title": "Closed"
+            }
+          ]
+        }
+      }
+    },
+    "validationErrors": {}
+  },
+  "_links": {
+    "self": {
+      "href": "/api/v3/work_packages/1234/form",
+      "method": "post"
+    }
+  }
+}
