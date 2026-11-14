@@ -79,7 +79,10 @@ try:
     from src.tools import weekly_reports   # 4 tools: generate_weekly_report, get_report_data, generate_this_week_report, generate_last_week_report
     from src.tools import news             # 5 tools: list_news, create_news, get_news, update_news, delete_news
 
-    logger.info("✅ All 49 tool modules loaded successfully")
+    # Phase 3: Attachments (5 tools)
+    from src.tools import attachments      # 5 tools: list, get, download, upload, delete
+
+    logger.info("✅ All 54 tool modules loaded successfully")
 except ImportError as e:
     logger.warning(f"⚠️  Some tool modules failed to import: {e}")
     raise
