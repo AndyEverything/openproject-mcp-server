@@ -1,12 +1,13 @@
 """Time entry management tools for time tracking."""
 
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import Field
 from src.server import mcp, get_client
+from src.utils.inputs import CoercibleModel
 from src.utils.formatting import format_success, format_error
 
 
-class CreateTimeEntryInput(BaseModel):
+class CreateTimeEntryInput(CoercibleModel):
     """Input model for creating time entries."""
     work_package_id: int = Field(..., description="Work package ID", gt=0)
     hours: float = Field(..., description="Hours spent", gt=0)
@@ -15,7 +16,7 @@ class CreateTimeEntryInput(BaseModel):
     comment: Optional[str] = Field(None, description="Optional comment")
 
 
-class UpdateTimeEntryInput(BaseModel):
+class UpdateTimeEntryInput(CoercibleModel):
     """Input model for updating time entries."""
     time_entry_id: int = Field(..., description="Time entry ID to update", gt=0)
     hours: Optional[float] = Field(None, description="New hours spent", gt=0)

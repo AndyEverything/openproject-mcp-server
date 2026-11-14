@@ -470,7 +470,7 @@ Update an existing work package.
 - `status_id` (integer, optional): Status ID
 - `priority_id` (integer, optional): Priority ID
 - `assignee_id` (integer, optional): User ID to assign to
-- `percentage_done` (integer, optional): Completion percentage (0-100)
+- `percentage_done` (integer, optional): Completion percentage (0-100). **Known instance behavior:** on some OpenProject instances progress is derived from status and `percentageDone` is read-only — sending it returns HTTP 422 `PropertyIsReadOnly`. The tool detects this, skips `percentage_done`, and still applies the other fields (with a note in the response).
 
 #### 13. `delete_work_package`
 Delete a work package.
