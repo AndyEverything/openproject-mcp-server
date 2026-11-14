@@ -1,3 +1,4 @@
+
 """Unit coverage for update_work_package's read-only percentage_done handling.
 
 On some OpenProject instances percentage_done is read-only and the API rejects it
@@ -6,6 +7,7 @@ rest of the update still applies, without swallowing unrelated errors. These tes
 mock the client, so they are network-free.
 """
 
+from conftest import tool_fn
 from src.tools import work_packages as wp
 
 
@@ -27,7 +29,7 @@ async def test_percentage_readonly_retries_without_field(monkeypatch):
     fake = _FakeClient()
     monkeypatch.setattr(wp, "get_client", lambda: fake)
 
-    result = await wp.update_work_package.fn(
+    result = await tool_fn(wp.update_work_package)(
         work_package_id=1, status_id=2, percentage_done=50
     )
 
@@ -44,7 +46,7 @@ async def test_percentage_readonly_only_field_returns_clear_message(monkeypatch)
     fake = _FakeClient()
     monkeypatch.setattr(wp, "get_client", lambda: fake)
 
-    result = await wp.update_work_package.fn(work_package_id=1, percentage_done=50)
+    result = await tool_fn(wp.update_work_package)(work_package_id=1, percentage_done=50)
 
     assert "read-only" in result.lower()
     assert "no other fields" in result.lower()
@@ -58,7 +60,7 @@ async def test_non_readonly_error_is_not_swallowed(monkeypatch):
 
     monkeypatch.setattr(wp, "get_client", lambda: _BoomClient())
 
-    result = await wp.update_work_package.fn(
+    result = await tool_fn(wp.update_work_package)(
         work_package_id=1, status_id=2, percentage_done=50
     )
 
@@ -86,7 +88,7 @@ async def test_percentage_readonly_detected_via_identifier_when_localized(monkey
     fake = _LocalizedClient()
     monkeypatch.setattr(wp, "get_client", lambda: fake)
 
-    result = await wp.update_work_package.fn(
+    result = await tool_fn(wp.update_work_package)(
         work_package_id=1, status_id=2, percentage_done=50
     )
 

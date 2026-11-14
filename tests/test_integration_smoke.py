@@ -21,6 +21,7 @@ Enable by pointing at a disposable test project with real credentials:
     uv run pytest tests/test_integration_smoke.py -v
 """
 
+from conftest import tool_fn
 import os
 import re
 
@@ -54,11 +55,11 @@ def _wp_id(text: str) -> int:
 
 
 async def test_work_package_crud_roundtrip():
-    # @mcp.tool wraps the coroutine in a FunctionTool; the callable is at `.fn`.
-    create = create_work_package.fn
-    update = update_work_package.fn
-    search = search_work_packages.fn
-    delete = delete_work_package.fn
+    # fastmcp 2.x wraps the coroutine in a FunctionTool (`.fn`); 3.x returns it as-is.
+    create = tool_fn(create_work_package)
+    update = tool_fn(update_work_package)
+    search = tool_fn(search_work_packages)
+    delete = tool_fn(delete_work_package)
 
     created = await create(
         project_id=int(PROJECT_ID),

@@ -9,3 +9,13 @@ import os
 
 os.environ.setdefault("OPENPROJECT_URL", "https://openproject.test")
 os.environ.setdefault("OPENPROJECT_API_KEY", "dummy-key-for-tests")
+
+
+def tool_fn(tool):
+    """Return the plain coroutine behind an ``@mcp.tool``-decorated function.
+
+    fastmcp 2.x wraps tools in a ``FunctionTool`` whose callable is ``.fn``;
+    fastmcp 3.x returns the original function unchanged. Accept both so the
+    tests run on either major version.
+    """
+    return getattr(tool, "fn", tool)
