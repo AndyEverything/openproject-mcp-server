@@ -115,11 +115,13 @@ async def list_work_package_relations(work_package_id: int) -> str:
             text += f"**Relation #{rel.get('id', 'N/A')}**\n"
             text += f"  Type: {rel.get('type', 'Unknown')}\n"
 
-            embedded = rel.get("_embedded", {})
-            if "from" in embedded:
-                text += f"  From: {embedded['from'].get('subject', 'Unknown')} (#{embedded['from'].get('id', 'N/A')})\n"
-            if "to" in embedded:
-                text += f"  To: {embedded['to'].get('subject', 'Unknown')} (#{embedded['to'].get('id', 'N/A')})\n"
+            # Collection elements carry from/to in _links (href + title), not _embedded
+            links = rel.get("_links", {})
+            for side, label in (("from", "From"), ("to", "To")):
+                link = links.get(side) or {}
+                href = link.get("href") or ""
+                wp_id = href.rstrip("/").split("/")[-1] if href else "N/A"
+                text += f"  {label}: {link.get('title', 'Unknown')} (#{wp_id})\n"
 
             if rel.get('lag'):
                 text += f"  Lag: {rel['lag']} days\n"

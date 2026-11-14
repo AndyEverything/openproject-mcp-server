@@ -1158,6 +1158,12 @@ class OpenProjectClient:
         # Prepare payload according to OpenProject API v3 spec
         payload = {"_links": {}}
 
+        # OpenProject 13 crashes with HTTP 500 ("undefined method `id' for nil")
+        # unless _links.from is in the body, even though the id is in the URL.
+        payload["_links"]["from"] = {
+            "href": f"/api/v3/work_packages/{from_id}"
+        }
+
         # Set required fields
         if "to_id" in data:
             payload["_links"]["to"] = {

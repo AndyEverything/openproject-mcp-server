@@ -558,6 +558,57 @@ async def update_work_package(input: UpdateWorkPackageInput) -> str:
 
 
 @mcp.tool
+async def get_work_package(work_package_id: int) -> str:
+    """Get one work package (ticket) with its FULL details, including the description.
+
+    List/search tools only return summaries; use this to read a ticket's
+    description, parent, dates and progress.
+
+    Args:
+        work_package_id: ID of the work package (e.g. 616 for #616)
+
+    Returns:
+        Markdown with subject, type, status, priority, assignee, parent,
+        dates, progress and the full raw description
+    """
+    try:
+        client = get_client()
+        wp = await client.get_work_package(work_package_id)
+        return format_work_package_detail(wp)
+    except Exception as e:
+        return format_error(f"Failed to get work package #{work_package_id}: {str(e)}")
+
+
+@mcp.tool
+async def get_work_packages(work_package_ids: str) -> str:
+    """Get several work packages with FULL details (including descriptions) in one call.
+
+    Args:
+        work_package_ids: Comma-separated IDs, e.g. "616,617,618" (max 20)
+
+    Returns:
+        One detail block per ticket; tickets that fail to load are reported inline
+    """
+    try:
+        ids = [int(x) for x in work_package_ids.replace(" ", "").split(",") if x]
+    except ValueError:
+        return format_error("work_package_ids must be comma-separated integers")
+    if not ids:
+        return format_error("No work package IDs given")
+    if len(ids) > 20:
+        return format_error("Too many IDs (max 20 per call)")
+
+    client = get_client()
+    blocks = []
+    for wp_id in ids:
+        try:
+            blocks.append(format_work_package_detail(await client.get_work_package(wp_id)))
+        except Exception as e:
+            blocks.append(format_error(f"Failed to get work package #{wp_id}: {str(e)}"))
+    return "\n\n---\n\n".join(blocks)
+
+
+@mcp.tool
 async def delete_work_package(work_package_id: int) -> str:
     """Delete a work package (task).
 
