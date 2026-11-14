@@ -1,12 +1,13 @@
 """Membership management tools."""
 
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import Field
 from src.server import mcp, get_client
+from src.utils.inputs import CoercibleModel
 from src.utils.formatting import format_success, format_error
 
 
-class CreateMembershipInput(BaseModel):
+class CreateMembershipInput(CoercibleModel):
     """Input model for creating memberships."""
     project_id: int = Field(..., description="Project ID", gt=0)
     user_id: Optional[int] = Field(None, description="User ID (required if group_id not provided)", gt=0)
@@ -16,7 +17,7 @@ class CreateMembershipInput(BaseModel):
     notification_message: Optional[str] = Field(None, description="Optional notification message")
 
 
-class UpdateMembershipInput(BaseModel):
+class UpdateMembershipInput(CoercibleModel):
     """Input model for updating memberships."""
     membership_id: int = Field(..., description="Membership ID to update", gt=0)
     role_ids: Optional[List[int]] = Field(None, description="New list of role IDs")

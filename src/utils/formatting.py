@@ -191,6 +191,12 @@ def format_work_package_detail(wp: Dict) -> str:
     else:
         text += f"**Assignee**: Unassigned\n"
 
+    # Parent (epic/defect this ticket is nested under)
+    parent_link = links.get("parent")
+    if parent_link and parent_link.get("href"):
+        parent_id = parent_link["href"].rstrip("/").split("/")[-1]
+        text += f"**Parent**: #{parent_id} {parent_link.get('title', '')}\n"
+
     # Dates
     if wp.get('startDate'):
         text += f"**Start Date**: {wp['startDate']}\n"

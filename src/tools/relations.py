@@ -1,12 +1,13 @@
 """Work package relation management tools (follows, blocks, relates, etc.)."""
 
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import Field
 from src.server import mcp, get_client
+from src.utils.inputs import CoercibleModel
 from src.utils.formatting import format_success, format_error
 
 
-class CreateRelationInput(BaseModel):
+class CreateRelationInput(CoercibleModel):
     """Input model for creating work package relations."""
     from_id: int = Field(..., description="Source work package ID", gt=0)
     to_id: int = Field(..., description="Target work package ID", gt=0)
@@ -15,7 +16,7 @@ class CreateRelationInput(BaseModel):
     description: Optional[str] = Field(None, description="Relation description")
 
 
-class UpdateRelationInput(BaseModel):
+class UpdateRelationInput(CoercibleModel):
     """Input model for updating work package relations."""
     relation_id: int = Field(..., description="Relation ID to update", gt=0)
     lag: Optional[int] = Field(None, description="New lag in working days")
@@ -115,11 +116,13 @@ async def list_work_package_relations(work_package_id: int) -> str:
             text += f"**Relation #{rel.get('id', 'N/A')}**\n"
             text += f"  Type: {rel.get('type', 'Unknown')}\n"
 
-            embedded = rel.get("_embedded", {})
-            if "from" in embedded:
-                text += f"  From: {embedded['from'].get('subject', 'Unknown')} (#{embedded['from'].get('id', 'N/A')})\n"
-            if "to" in embedded:
-                text += f"  To: {embedded['to'].get('subject', 'Unknown')} (#{embedded['to'].get('id', 'N/A')})\n"
+            # Collection elements carry from/to in _links (href + title), not _embedded
+            links = rel.get("_links", {})
+            for side, label in (("from", "From"), ("to", "To")):
+                link = links.get(side) or {}
+                href = link.get("href") or ""
+                wp_id = href.rstrip("/").split("/")[-1] if href else "N/A"
+                text += f"  {label}: {link.get('title', 'Unknown')} (#{wp_id})\n"
 
             if rel.get('lag'):
                 text += f"  Lag: {rel['lag']} days\n"

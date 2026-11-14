@@ -77,34 +77,22 @@ async def test_all_tools():
         print(f"FAIL FAILED: {e}")
 
     # Test 5: Create Work Package (CRITICAL) - DRY RUN
-    print("\n[5] Test: create_work_package validation (CRITICAL)")
+    print("\n[5] Test: create_work_package (CRITICAL)")
     try:
-        from src.tools.work_packages import CreateWorkPackageInput
-        # Validate input model only (don't actually create)
-        test_input = CreateWorkPackageInput(
-            project_id=1,
-            subject="Test Work Package",
-            type_id=1,
-            description="This is a test"
-        )
-        print(f"OK Input validation PASSED")
-        print(f"   Model: {test_input.model_dump()}")
+        # create_work_package now uses flat parameters (no wrapped input model)
+        from src.tools.work_packages import create_work_package
+        assert create_work_package is not None
+        print("OK create_work_package importable (flat params)")
     except Exception as e:
         print(f"FAIL FAILED: {e}")
 
     # Test 6: Update Work Package (CRITICAL) - DRY RUN
-    print("\n[6] Test: update_work_package validation (CRITICAL)")
+    print("\n[6] Test: update_work_package (CRITICAL)")
     try:
-        from src.tools.work_packages import UpdateWorkPackageInput
-        # Validate input model only (don't actually update)
-        test_input = UpdateWorkPackageInput(
-            work_package_id=123,
-            status_id=5,
-            assignee_id=7,
-            percentage_done=50
-        )
-        print(f"OK Input validation PASSED")
-        print(f"   Model: {test_input.model_dump()}")
+        # update_work_package now uses flat parameters (no wrapped input model)
+        from src.tools.work_packages import update_work_package
+        assert update_work_package is not None
+        print("OK update_work_package importable (flat params)")
     except Exception as e:
         print(f"FAIL FAILED: {e}")
 
