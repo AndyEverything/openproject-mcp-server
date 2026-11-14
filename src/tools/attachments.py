@@ -3,7 +3,9 @@
 import os
 import mimetypes
 from typing import Dict, Optional
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from src.utils.inputs import CoercibleModel
 
 from src.server import mcp, get_client
 from src.utils.formatting import format_success, format_error
@@ -31,7 +33,7 @@ _TEXT_EXTENSIONS = (
 )
 
 
-class UploadAttachmentInput(BaseModel):
+class UploadAttachmentInput(CoercibleModel):
     """Input model for uploading an attachment."""
 
     work_package_id: int = Field(..., description="Work package ID", gt=0)
